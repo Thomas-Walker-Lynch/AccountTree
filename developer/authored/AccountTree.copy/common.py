@@ -1,31 +1,41 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-common - what the work modules of SubU_admin share: the log, running a
-command, reading accounts and mounts, and checking names and paths.
+common - what the work modules of AccountTree_admin share: the log, carrying
+out a change, and checking names and paths.
 
 Each work function is given a log and a preview flag. Everything a function
 does is decided the same way in a preview; the flag is tested only where a
-change is made: a database transaction is rolled back, and a command that
-would change the system is logged and not run.
+change is made: a database transaction is rolled back, and a change to the
+system is logged and not carried out.
 """
 
-import re ,pwd ,grp ,socket ,subprocess
+import socket
 from pathlib import Path
 
+import kernel
+from kernel import KernelError
+from system_account import SystemAccountError
+
 HOME = Path("/home")
+# a parent account's name and its child account's last name are joined by this
 SEPARATOR = "·"
-RESERVED_NAME = {"SubU"}
+# a system account made for a branch of a storage database is named
+# <name><BRANCH_MARK><eight hex digits>
+BRANCH_MARK = "~"
+TREE_DIR_NAME = "AccountTree"
+RESERVED_NAME = {TREE_DIR_NAME}
 
 
 class Log:
-  TAG_WIDTH = 22
+  TAG_WIDTH = 24
 
   # the tag a preview prints for each action tag
   PREVIEW_TAG = {
     "made": "would make" ,"recorded": "would record" ,"mounted": "would mount",
-    "unmounted": "would unmount" ,"adopted": "would adopt" ,"made account": "would make account",
-    "set": "would set" ,"deleted": "would delete" ,"deleted account": "would delete account",
-    "deleted group": "would delete group" ,"retired": "would retire" ,"mapped": "would map",
+    "unmounted": "would unmount" ,"adopted": "would adopt",
+    "made system account": "would make system account" ,"set": "would set" ,"deleted": "would delete",
+    "deleted system account": "would delete system account" ,"deleted system group": "would delete system group",
+    "retired": "would retire" ,"mapped": "would map" ,"branched": "would branch",
   }
 
   def __init__(self ,preview):
@@ -57,99 +67,46 @@ class Log:
     return 1 if self.error_count else 0
 
 
-def run(command ,log ,preview):
+def act(log ,preview ,subject ,function ,*argument):
   """
-  Run a command that changes the system; in a preview, only show it.
+  Carry out a change to the system, function(*argument); in a preview, do
+  nothing. Returns True when it was done, or would be; logs the error and
+  returns False when it failed.
   """
   if preview:
     return True
-  result = subprocess.run(command ,capture_output=True ,text=True)
-  if result.returncode != 0:
-    log.error(" ".join(command) ,result.stderr.strip() or f"exit {result.returncode}")
+  try:
+    function(*argument)
+    return True
+  except (KernelError ,SystemAccountError ,OSError) as error:
+    log.error(subject ,str(error))
     return False
-  return True
 
 def host_name() -> str:
   return socket.gethostname()
 
-def account(name):
-  try:
-    return pwd.getpwnam(name)
-  except KeyError:
-    return None
-
-def account_by_system_uid(system_uid):
-  try:
-    return pwd.getpwuid(system_uid)
-  except KeyError:
-    return None
-
-def group(name):
-  try:
-    return grp.getgrnam(name)
-  except KeyError:
-    return None
-
-def login_defs_value(key ,default):
-  try:
-    for line in Path("/etc/login.defs").read_text(encoding="utf-8").splitlines():
-      field = line.split()
-      if len(field) >= 2 and field[0] == key and field[1].isdigit():
-        return int(field[1])
-  except OSError:
-    pass
-  return default
-
-def uid_min() -> int:
-  """
-  The lowest uid of a person's account on this system; below it are the
-  accounts of the system's own services.
-  """
-  return login_defs_value("UID_MIN" ,1000)
-
-def is_mountpoint(path):
-  return subprocess.run(["mountpoint" ,"-q" ,str(path)]).returncode == 0
-
-def mount_point_list():
-  """
-  Every mount point on the system, from /proc/self/mountinfo, where a space
-  and a few other characters in a path are written as three-digit octal escapes.
-  """
-  result = []
-  for line in Path("/proc/self/mountinfo").read_bytes().split(b"\n"):
-    field = line.split(b" ")
-    if len(field) > 4:
-      raw = re.sub(rb"\\([0-7]{3})" ,lambda m: bytes([int(m.group(1) ,8)]) ,field[4])
-      result.append(raw.decode("utf-8" ,"replace"))
-  return result
-
-def session_system_uids():
-  result = subprocess.run(["loginctl" ,"list-sessions" ,"--no-legend"] ,capture_output=True ,text=True)
-  system_uid_set = set()
-  for line in result.stdout.splitlines():
-    field = line.split()
-    if len(field) >= 2 and field[1].isdigit():
-      system_uid_set.add(int(field[1]))
-  return system_uid_set
-
 def valid_name(name):
+  """
+  Why name cannot be an account name, or None when it can.
+  """
   if not name or len(name.encode("utf-8")) > 32:
-    return "a user name is 1 to 32 bytes"
+    return "an account name is 1 to 32 bytes"
   if any(c in name for c in "/: \t\n") or name.startswith(("-" ,SEPARATOR)) or name.endswith(SEPARATOR):
-    return "a user name may not contain '/', ':' or spaces, nor start with '-' or begin or end with '·'"
+    return "an account name may not contain '/', ':' or spaces, nor start with '-' or begin or end with '·'"
   if SEPARATOR * 2 in name:
-    return "a user name may not contain an empty short name"
+    return "an account name may not contain an empty part between two '·'"
   if name in RESERVED_NAME:
-    return f"'{name}' is reserved: /home/{name} holds SubU's own files"
+    return f"'{name}' is reserved: /home/{name} holds AccountTree's own files"
   return None
 
-def subu_dir_problem(subu_dir):
+def tree_dir_problem(tree_dir):
   """
-  A SubU dir is <storage root>/home/SubU; every storage keeps the same layout.
+  Why tree_dir is not a tree dir, or None. A tree dir is
+  <storage root>/home/AccountTree; every storage keeps the same layout.
   """
-  path = Path(subu_dir)
-  if path.name != "SubU" or path.parent.name != "home":
-    return f"{subu_dir} is not a SubU dir; a SubU dir is <storage root>/home/SubU, such as /home/SubU"
+  path = Path(tree_dir)
+  if path.name != TREE_DIR_NAME or path.parent.name != "home":
+    return f"{tree_dir} is not a tree dir; a tree dir is <storage root>/home/{TREE_DIR_NAME}, such as /home/{TREE_DIR_NAME}"
   return None
 
 def delete_mount_point(target ,log ,preview):
@@ -160,14 +117,13 @@ def delete_mount_point(target ,log ,preview):
   """
   if not target.exists():
     return
-  if preview and is_mountpoint(target):
+  if preview and kernel.is_mount_point(target):
     log.line("deleted" ,str(target) ,"mount point, once unmounted, if attach made it")
     return
   st = target.lstat()
-  if is_mountpoint(target) or not target.is_dir() or st.st_uid != 0 or (st.st_mode & 0o7777) != 0 or any(target.iterdir()):
+  if kernel.is_mount_point(target) or not target.is_dir() or st.st_uid != 0 or (st.st_mode & 0o7777) != 0 or any(target.iterdir()):
     log.line("kept" ,str(target) ,"not an empty mount point made by attach")
     return
-  if not preview:
-    subprocess.run(["chattr" ,"-i" ,str(target)] ,capture_output=True)
-    target.rmdir()
+  if not act(log ,preview ,str(target) ,kernel.immutable_set ,target ,False): return
+  if not act(log ,preview ,str(target) ,target.rmdir): return
   log.line("deleted" ,str(target) ,"mount point")

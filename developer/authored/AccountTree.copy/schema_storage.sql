@@ -1,13 +1,15 @@
 -- schema_storage.sql
 --
--- The storage database, standard 5.0, at <SubU dir>/database.sqlite3, where the
--- SubU dir is <storage root>/home/SubU. It records the users kept on the
--- storage. It grants nothing on any system: which of its users have accounts
--- on a system is recorded by that system, in its system database.
+-- The storage database, standard 5.0, at <tree dir>/database.sqlite3, where the
+-- tree dir is <storage root>/home/AccountTree. It records the storage accounts
+-- kept on the storage. It grants nothing on any system: which storage accounts
+-- are the same accounts as system accounts on a system is recorded by that
+-- system, in its system database.
 --
 --   database uuid   names this database; a copy of the database carries it too
---   database uid    a user's uid in this database's own numbering, which counts
---                   down from 1999999999; the user's files on the storage carry it
+--   database uid    a storage account's uid in this database's own numbering,
+--                   which counts down from 1999999999; the account's files on the
+--                   storage carry it
 --
 -- A database has no name for people: a name would travel with every copy of
 -- the database and come to mislead. It is shown by its database uuid, series
@@ -15,27 +17,35 @@
 -- Times are for people to read; the series number in identity is authoritative.
 
 -- This database: its database uuid and the head of its hash chain. One row.
+-- genesis_uuid is the database uuid it was made with, from which its chain
+-- begins. A database made by branching from another gets a new database uuid,
+-- and records the database it branched from and the head they parted after.
 CREATE TABLE identity (
-  database_uuid  TEXT NOT NULL,
-  series         INTEGER NOT NULL,      -- series number of the last transaction
-  head_hash      TEXT NOT NULL,         -- hash of the last transaction
-  created        TEXT NOT NULL
+  database_uuid        TEXT NOT NULL,
+  genesis_uuid         TEXT NOT NULL,
+  branch_of            TEXT,              -- database uuid this one branched from
+  branch_after_series  INTEGER,
+  branch_after_head    TEXT,
+  series               INTEGER NOT NULL,  -- series number of the last transaction
+  head_hash            TEXT NOT NULL,     -- hash of the last transaction
+  created              TEXT NOT NULL
 );
 
--- The SubU standards this database follows.
+-- The AccountTree standards this database follows.
 CREATE TABLE standard (
   version  TEXT PRIMARY KEY
 );
 
--- The users this database carries.
-CREATE TABLE user (
-  database_uid       INTEGER PRIMARY KEY,
-  name               TEXT NOT NULL UNIQUE,  -- user name in this database
-  masu_database_uid  INTEGER,               -- database uid of its MasU; NULL at the top of a tree, or when its MasU is carried by another database
-  masu_name          TEXT,                  -- user name of its MasU
-  state              TEXT NOT NULL CHECK (state IN ('active' ,'deprecated' ,'deallocated')),
-  created            TEXT NOT NULL,
-  changed            TEXT NOT NULL
+-- The storage accounts this database carries. A storage account's parent is
+-- named by its name, and by its database uid when the parent is carried here.
+CREATE TABLE account (
+  database_uid         INTEGER PRIMARY KEY,
+  name                 TEXT NOT NULL UNIQUE,
+  parent_database_uid  INTEGER,              -- NULL when the parent is not carried here
+  parent_name          TEXT,                 -- NULL for an account whose parent is root
+  state                TEXT NOT NULL CHECK (state IN ('active' ,'deprecated' ,'deallocated')),
+  created              TEXT NOT NULL,
+  changed              TEXT NOT NULL
 );
 
 -- Every database uid this database has given out. None is given out twice.
@@ -44,22 +54,26 @@ CREATE TABLE database_uid (
   state         TEXT NOT NULL CHECK (state IN ('in use' ,'retired'))
 );
 
--- Systems on which a user of this database has been made the same user as an
--- account. A note for the owner of the storage, never authority: the system
--- database of each system is the record of that.
-CREATE TABLE system_note (
+-- The systems that have seen this database: those on which a storage account
+-- of it has been made the same account as a system account, with when that
+-- was first, and when the database was last attached or detached there. For
+-- the owner of the storage, and for storage delete, which will not leave a
+-- system mapping a database that no longer exists. Never authority: each
+-- system's own system database is the record of which accounts are the same.
+CREATE TABLE system_seen (
   system_uuid  TEXT PRIMARY KEY,
-  noted        TEXT NOT NULL
+  first        TEXT NOT NULL,
+  last         TEXT NOT NULL
 );
 
--- Other databases this one knows, and the users of each that are the same
--- users as users here. Not used in 5.0.
+-- Other databases this one knows, and their storage accounts that are the
+-- same accounts as storage accounts here. Not used in 5.0.
 CREATE TABLE acquaintance_database (
   database_uuid  TEXT PRIMARY KEY,
   introduced     TEXT NOT NULL
 );
 
-CREATE TABLE same_user_database (
+CREATE TABLE same_account_database (
   other_database_uuid  TEXT NOT NULL,
   other_database_uid   INTEGER NOT NULL,
   database_uid         INTEGER NOT NULL,

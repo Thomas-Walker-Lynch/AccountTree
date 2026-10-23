@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+# -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
+"""
+AccountTree_admin
+
+The administrator's program. It runs as root, and calls the work functions
+directly, so it works whether or not the AccountTree server is running. A
+person manages the child accounts of his own login account with the
+AccountTree program.
+
+AccountTree keeps light containers made of Linux accounts. The accounts form
+a tree: root at the top, a login account for each person who logs in, and
+below a login account its child accounts, which are entered from their parent
+rather than through the system's login programs.
+
+There are two kinds of database:
+  system database    /var/lib/AccountTree/system.sqlite3, this system's own
+                     record, identified by its system uuid. Its system map is
+                     the authority for which storage accounts are the same
+                     accounts as system accounts here.
+  storage database   <tree dir>/database.sqlite3, the storage accounts kept on
+                     a storage, identified by its database uuid.
+
+A storage is a persistent storage device: the disk inside the machine, or a
+drive plugged in. Its tree dir is <storage root>/home/AccountTree and holds the
+storage database and account_data, the storage accounts' homes. On the disk
+the system runs from, the tree dir is /home/AccountTree; on a drive mounted at
+/mnt/Eagle it is /mnt/Eagle/home/AccountTree.
+
+An account specifier names an account in one place:
+  system <host name> <system account>     a system account on this system
+  storage <tree dir> <storage account>    a storage account of the storage
+                                          database in that tree dir
+
+Keywords, such as make-system-account, are words given after a command's
+other arguments, in any order, as the command itself is a word.
+
+Usage: AccountTree_admin <command> [argument ...]
+       AccountTree_admin preview <command> [argument ...]
+  help | -h | --help             print this message (also printed when given no arguments)
+
+  system make [<first system uid> <last system uid>]
+                                 make the system database, with a new system uuid and
+                                 the range of system uids AccountTree gives out
+                                 (default 2000 to 59999)
+  system show                    print the system database, and verify it
+  system delete                  delete the system database; refused while any system
+                                 account is the same account as a storage account
+
+  storage make <tree dir>        make the tree dir with an empty storage database and
+                                 account_data
+  storage show <tree dir>        print the storage database, and verify it
+  storage delete <tree dir> [delete-account-data] [forget-other-systems]
+                                 undo on this system what AccountTree did for the
+                                 storage database's accounts, then delete the tree
+                                 dir. Every check is made first, and a failed check
+                                 changes nothing. It deletes the system accounts
+                                 AccountTree made and keeps adopted ones. Homes
+                                 holding files are deleted only with
+                                 delete-account-data
+
+  account make <tree dir> <name> [uid <database uid>] [parent <name>] [make-system-account]
+                                 make a storage account, with its home in account_data;
+                                 its database uid is the next counting down from
+                                 1999999999, or uid keeps an existing uid. Its parent is
+                                 the account its name begins with, before the last '·'.
+                                 make-system-account also makes a system account of the
+                                 same name, the same account as it
+
+  is-same-account <account specifier> <account specifier> [make-system-account]
+                                 record in the system map that a system account and a
+                                 storage account are the same account. The system
+                                 account is adopted when it exists; make-system-account
+                                 makes it, with a new system uid, when it does not
+  is-not-same-account <account specifier> <account specifier>
+                                 undo is-same-account: unmount the home, delete a
+                                 system account AccountTree made, keep an adopted one,
+                                 retire the system uid
+  same-account show [storage <tree dir>]
+                                 print which accounts are the same account here
+  same-account suggest storage <tree dir>
+                                 print is-same-account commands proposed by matching
+                                 names, to read and run; changes nothing
+
+  attach <tree dir> [branch]     mount the home of each storage account the system map
+                                 names at /home/<system account>, nosuid and nodev. A
+                                 storage that went back to an older copy, or sideways
+                                 to a branch, is attached with a warning. branch first
+                                 makes the storage a branch of its own, with system
+                                 accounts named <system account>~<8 hex digits>, so it
+                                 and the line it came from can both be attached
+  detach <tree dir>              unmount them; refused for a system account with a
+                                 login session
+
+  limit set <system account> <maximum>
+                                 set how many child accounts a system account may have
+                                 below it; one with no limit set may have none
+
+  preview <command>              print the log of what <command> would do, change nothing
+
+The order on a new system: system make, storage make, account make, attach. To
+undo: storage delete, then system delete.
+"""
+
+import sys ,os
+sys.path.insert(0 ,os.path.dirname(os.path.realpath(__file__)))
+
+import common
+import system
+import storage
+import same_account
+from database import DatabaseError
+
+# first words that take a second word to make the command
+OBJECT = ("system" ,"storage" ,"account" ,"same-account" ,"limit")
+
+# commands that only read, and so may be run by anyone with read access
+READ_ONLY = ("system show" ,"storage show" ,"same-account show" ,"same-account suggest")
+
+
+def print_help():
+  print(__doc__.strip())
+  return 0
+
+def split_keyword(rest ,positional_count ,word_set=() ,value_word_set=()):
+  """
+  The first positional_count arguments are positional. Each argument after
+  them is a keyword: a word from word_set, standing alone, or a word from
+  value_word_set, followed by its value. Like the command itself, a keyword is
+  a word and not a flag. Returns (positional ,keyword) where keyword maps each
+  word given to True or to its value.
+  """
+  if len(rest) < positional_count:
+    raise ValueError(f"{positional_count} arguments are needed before any keyword")
+  positional ,tail ,keyword = rest[:positional_count] ,rest[positional_count:] ,{}
+  i = 0
+  while i < len(tail):
+    word = tail[i]
+    if word in word_set:
+      keyword[word] = True; i += 1
+    elif word in value_word_set:
+      if i + 1 >= len(tail):
+        raise ValueError(f"'{word}' needs a value after it")
+      keyword[word] = tail[i + 1]; i += 2
+    else:
+      known = sorted(set(word_set) | set(value_word_set))
+      raise ValueError(f"'{word}' is not a keyword here" + (f"; the keywords are {', '.join(known)}" if known else ""))
+  return positional ,keyword
+
+def integer(text ,what):
+  try:
+    return int(text)
+  except ValueError:
+    raise ValueError(f"{what} must be a whole number, not '{text}'")
+
+def account_specifier_list(rest):
+  """
+  Parse account specifiers from rest: 'system <host name> <system account>'
+  and 'storage <tree dir> <storage account>'.
+  """
+  result = []
+  i = 0
+  while i < len(rest):
+    kind = rest[i]
+    if kind not in ("system" ,"storage") or i + 2 >= len(rest):
+      raise ValueError("an account specifier is 'system <host name> <system account>' or"
+                       f" 'storage <tree dir> <storage account>', not '{' '.join(rest[i:])}'")
+    if kind == "system":
+      result.append({"kind": "system" ,"host": rest[i + 1] ,"account": rest[i + 2]})
+    else:
+      result.append({"kind": "storage" ,"tree_dir": rest[i + 1] ,"account": rest[i + 2]})
+    i += 3
+  return result
+
+def system_and_storage(specifier_list):
+  """
+  In 5.0, is-same-account relates a system account and a storage account,
+  given in either order.
+  """
+  kind = sorted(s["kind"] for s in specifier_list)
+  if len(specifier_list) != 2 or kind != ["storage" ,"system"]:
+    raise ValueError("in 5.0 the two account specifiers are one system account and one storage account")
+  system_spec = next(s for s in specifier_list if s["kind"] == "system")
+  storage_spec = next(s for s in specifier_list if s["kind"] == "storage")
+  return system_spec ,storage_spec
+
+def CLI(argv=None):
+  if argv is None: argv = sys.argv[1:]
+  if not argv or argv[0] in ("help" ,"-h" ,"--help"): return print_help()
+
+  preview = argv[0] == "preview"
+  if preview: argv = argv[1:]
+  if not argv:
+    print("Error: 'preview' needs a command after it." ,file=sys.stderr)
+    return 1
+
+  command ,rest = argv[0] ,list(argv[1:])
+  if command in OBJECT and rest:
+    command ,rest = f"{command} {rest[0]}" ,rest[1:]
+
+  if command not in READ_ONLY and os.geteuid() != 0 and not preview:
+    print("Error: AccountTree_admin changes the system and must be run as root." ,file=sys.stderr)
+    return 1
+
+  log = common.Log(preview)
+  try:
+    # ---- read only
+    if command == "system show" and not rest:
+      return system.system_show()
+    if command == "storage show" and len(rest) == 1:
+      return storage.storage_show(rest[0])
+    if command == "same-account show" and len(rest) in (0 ,2):
+      if rest and rest[0] != "storage": return usage_error(command)
+      return same_account.same_account_show({"tree_dir": rest[1]} if rest else None)
+    if command == "same-account suggest" and len(rest) == 2 and rest[0] == "storage":
+      return same_account.same_account_suggest({"tree_dir": rest[1]})
+
+    # ---- changes
+    if command == "system make" and len(rest) in (0 ,2):
+      if rest:
+        first ,last = integer(rest[0] ,"<first system uid>") ,integer(rest[1] ,"<last system uid>")
+      else:
+        first ,last = system.DEFAULT_SYSTEM_UID_FIRST ,system.DEFAULT_SYSTEM_UID_LAST
+      header(command ,None ,preview)
+      system.system_make(first ,last ,log ,preview)
+    elif command == "system delete" and not rest:
+      header(command ,None ,preview)
+      system.system_delete(log ,preview)
+    elif command == "storage make" and len(rest) == 1:
+      header(command ,rest[0] ,preview)
+      storage.storage_make(rest[0] ,log ,preview)
+    elif command == "storage delete" and rest:
+      (tree_dir,) ,keyword = split_keyword(rest ,1 ,("delete-account-data" ,"forget-other-systems"))
+      header(command ,tree_dir ,preview)
+      storage.storage_delete(tree_dir ,"delete-account-data" in keyword ,"forget-other-systems" in keyword ,log ,preview)
+    elif command == "account make" and len(rest) >= 2:
+      (tree_dir ,name) ,keyword = split_keyword(rest ,2 ,("make-system-account",) ,("uid" ,"parent"))
+      database_uid = integer(keyword["uid"] ,"uid") if "uid" in keyword else None
+      header(command ,tree_dir ,preview)
+      storage.account_make(tree_dir ,name ,database_uid ,keyword.get("parent") ,"make-system-account" in keyword ,log ,preview)
+    elif command == "is-same-account" and rest:
+      specifier ,keyword = split_keyword(rest ,6 ,("make-system-account",))
+      system_spec ,storage_spec = system_and_storage(account_specifier_list(specifier))
+      header(command ,None ,preview)
+      same_account.is_same_account(system_spec ,storage_spec ,"make-system-account" in keyword ,log ,preview)
+    elif command == "is-not-same-account" and rest:
+      specifier ,_ = split_keyword(rest ,6)
+      system_spec ,storage_spec = system_and_storage(account_specifier_list(specifier))
+      header(command ,None ,preview)
+      same_account.is_not_same_account(system_spec ,storage_spec ,log ,preview)
+    elif command == "attach" and rest:
+      (tree_dir,) ,keyword = split_keyword(rest ,1 ,("branch",))
+      header(command ,tree_dir ,preview)
+      storage.attach(tree_dir ,"branch" in keyword ,log ,preview)
+    elif command == "detach" and len(rest) == 1:
+      header(command ,rest[0] ,preview)
+      storage.detach(rest[0] ,log ,preview)
+    elif command == "limit set" and len(rest) == 2:
+      header(command ,None ,preview)
+      system.limit_set(rest[0] ,integer(rest[1] ,"<maximum>") ,log ,preview)
+    else:
+      return usage_error(command)
+  except (DatabaseError ,ValueError) as error:
+    log.error(command ,str(error))
+  return log.summary()
+
+def header(command ,tree_dir ,preview):
+  where = f"   on {os.path.abspath(tree_dir)}" if tree_dir else ""
+  print(f"AccountTree_admin {'preview ' if preview else ''}{command}{where}")
+
+def usage_error(command):
+  print(f"Error: unknown command or wrong arguments: '{command}'." ,file=sys.stderr)
+  print("Run 'AccountTree_admin help' for the commands." ,file=sys.stderr)
+  return 1
+
+
+if __name__ == "__main__":
+  try:
+    sys.exit(CLI())
+  except BrokenPipeError:
+    # the reader of our output, such as head, closed the pipe early
+    os.dup2(os.open(os.devnull ,os.O_WRONLY) ,sys.stdout.fileno())
+    sys.exit(1)

@@ -2,18 +2,19 @@
 """
 system - the work functions for the system database
 
-The system database, /var/lib/SubU/system.sqlite3, is this system's own record:
-its system uuid, the range of system uids SubU gives out, the system map of
-accounts that are the same users as users of storage databases, and the
-limits on how many SubUs each account may make.
+The system database, /var/lib/AccountTree/system.sqlite3, is this system's own
+record: its system uuid, the range of system uids AccountTree gives out, the
+system map of system accounts that are the same accounts as storage accounts,
+every head of each storage database it has seen, and the limits on how many
+child accounts each system account may have.
 """
 
 import os
-from pathlib import Path
 
 import database
-from database import Database ,DatabaseError
-from common import host_name ,account_by_system_uid ,account
+from database import Database
+from common import host_name ,act
+from system_account import system_account ,system_account_by_system_uid
 
 DEFAULT_SYSTEM_UID_FIRST = 2000
 DEFAULT_SYSTEM_UID_LAST = 59999
@@ -42,9 +43,8 @@ def system_make(system_uid_first ,system_uid_last ,log ,preview):
     log.line("kept" ,str(path) ,f"a system database exists, system uuid {db.uuid()}")
     return
   if not database.SYSTEM_DIR.is_dir():
-    if not preview:
-      database.SYSTEM_DIR.mkdir(mode=0o700 ,parents=True)
-      os.chmod(database.SYSTEM_DIR ,0o700)
+    if not act(log ,preview ,str(database.SYSTEM_DIR) ,os.makedirs ,database.SYSTEM_DIR ,0o700): return
+    if not act(log ,preview ,str(database.SYSTEM_DIR) ,os.chmod ,database.SYSTEM_DIR ,0o700): return
     log.line("made" ,str(database.SYSTEM_DIR) ,"root only, mode 0700")
   db = Database.make(path ,"system" ,preview)
   with db.transaction("set system uid range" ,preview) as t:
@@ -67,15 +67,21 @@ def system_show():
   print(f"range     system uids {r['first']} to {r['last']}")
   print("system map")
   for m in db.rows("SELECT * FROM system_map ORDER BY state ,system_uid"):
-    entry = account_by_system_uid(m["system_uid"])
-    present = "  (account missing)" if m["state"] == "in use" and not (entry and entry.pw_name == m["account_name"]) else ""
-    print(f"  {m['account_name']:<26}system uid {m['system_uid']:<7}{m['account']:<8}{m['state']:<8}"
-          f"database {m['database_uuid'][:8]} database uid {m['database_uid']}{present}")
-  limit_row = db.rows("SELECT * FROM user_limit ORDER BY system_uid")
+    entry = system_account_by_system_uid(m["system_uid"])
+    missing = m["state"] == "in use" and not (entry and entry.pw_name == m["system_account_name"])
+    print(f"  {m['system_account_name']:<26}system uid {m['system_uid']:<7}{m['origin']:<8}{m['state']:<8}"
+          f"database {m['database_uuid'][:8]} database uid {m['database_uid']}"
+          + ("  (system account missing)" if missing else ""))
+  print("storage heads last seen")
+  for h in db.rows("SELECT h.* FROM storage_head_seen h WHERE h.id = (SELECT MAX(id) FROM storage_head_seen"
+                   " WHERE database_uuid = h.database_uuid) ORDER BY h.seen"):
+    print(f"  database {h['database_uuid'][:8]}  series {h['series']}  {h['event']} {h['seen']}"
+          + (f"  ({h['continuity']})" if h["continuity"] else ""))
+  limit_row = db.rows("SELECT * FROM account_limit ORDER BY system_uid")
   if limit_row:
     print("limits")
     for l in limit_row:
-      entry = account_by_system_uid(l["system_uid"])
+      entry = system_account_by_system_uid(l["system_uid"])
       who = entry.pw_name if entry else f"system uid {l['system_uid']}"
       print(f"  {who:<26}{l['maximum']}")
   problem = db.verify()
@@ -85,47 +91,47 @@ def system_show():
 def system_delete(log ,preview):
   """
   Delete the system database. Refused while its system map has any row in
-  use: those accounts would be left with no record, and their system uids
-  could be given out again.
+  use: those system accounts would be left with no record, and their system
+  uids could be given out again.
   """
   path = database.SYSTEM_DATABASE_PATH
   if not path.exists():
     log.line("kept" ,str(path) ,"no system database here; nothing to delete"); return
   db = Database.open(path ,"system")
-  in_use = db.rows("SELECT * FROM system_map WHERE state = 'in use' ORDER BY account_name")
+  in_use = db.rows("SELECT * FROM system_map WHERE state = 'in use' ORDER BY system_account_name")
   if in_use:
     for m in in_use:
-      log.error(str(path) ,f"{m['account_name']} is still the same user as database uid {m['database_uid']}"
-                f" of database {m['database_uuid'][:8]}; run is-not-same-user, or storage delete, first")
+      log.error(str(path) ,f"{m['system_account_name']} is still the same account as database uid {m['database_uid']}"
+                f" of database {m['database_uuid'][:8]}; run is-not-same-account, or storage delete, first")
     log.line("kept" ,str(path) ,"nothing was changed")
     return
   db.close()
   for entry in sorted(path.parent.iterdir()):
     if entry.name.startswith("system.sqlite3"):
-      if not preview: entry.unlink()
+      if not act(log ,preview ,str(entry) ,entry.unlink): return
       log.line("deleted" ,str(entry))
-  if not preview and not any(path.parent.iterdir()):
-    path.parent.rmdir()
-    log.line("deleted" ,str(path.parent))
-  elif preview:
+  if preview:
     log.line("deleted" ,str(path.parent) ,"when nothing else is in it")
+  elif not any(path.parent.iterdir()):
+    if act(log ,preview ,str(path.parent) ,path.parent.rmdir):
+      log.line("deleted" ,str(path.parent))
 
-def limit_set(account_name ,maximum ,log ,preview):
+def limit_set(system_account_name ,maximum ,log ,preview):
   """
-  Set how many SubUs an account may have below it on this system.
+  Set how many child accounts a system account may have below it.
   """
   if maximum < 0:
-    log.error(account_name ,"a limit is 0 or more"); return
+    log.error(system_account_name ,"a limit is 0 or more"); return
   db = open_system_database(log)
   if db is None: return
-  entry = account(account_name)
+  entry = system_account(system_account_name)
   if entry is None:
-    log.error(account_name ,"no such account on this system"); return
-  old = db.row("SELECT maximum FROM user_limit WHERE system_uid = ?" ,(entry.pw_uid,))
+    log.error(system_account_name ,"no such system account"); return
+  old = db.row("SELECT maximum FROM account_limit WHERE system_uid = ?" ,(entry.pw_uid,))
   if old and old["maximum"] == maximum:
-    log.line("kept" ,f"{account_name} limit {maximum}" ,"already set"); return
-  with db.transaction(f"set limit of {account_name} to {maximum}" ,preview) as t:
-    t.execute("INSERT INTO user_limit(system_uid ,maximum) VALUES (? ,?)"
+    log.line("kept" ,f"{system_account_name} limit {maximum}" ,"already set"); return
+  with db.transaction(f"set limit of {system_account_name} to {maximum}" ,preview) as t:
+    t.execute("INSERT INTO account_limit(system_uid ,maximum) VALUES (? ,?)"
               " ON CONFLICT(system_uid) DO UPDATE SET maximum = excluded.maximum" ,(entry.pw_uid ,maximum))
   was = f"was {old['maximum']}" if old else "was unset, which counts as 0"
-  log.line("set" ,f"{account_name} limit {maximum}" ,was)
+  log.line("set" ,f"{system_account_name} limit {maximum}" ,was)

@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+# -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
+"""
+AccountTree
+
+The program a person uses to manage the child accounts and other resources
+of his login account. AccountTree keeps light containers made of Linux
+accounts: below a login account are its child accounts, each a separate
+account with its own files and processes, entered through its parent rather
+than through the system's login programs.
+
+This is the application shell. It shows what exists and greys out every
+option that has no implementation yet. It changes nothing, and runs with
+the privileges of the account that started it.
+
+Usage: AccountTree <command> [argument ...]
+  help | -h | --help   print this message (also printed when given no arguments)
+  window [<account>]   open the resource window for <account>, default your own
+  list [<account>]     print the child accounts of <account>, default your own
+  resource             print the kinds of resource, and which have an allocator
+"""
+
+import sys ,os
+sys.path.insert(0 ,os.path.dirname(os.path.realpath(__file__)))
+
+import account_tree
+import resource_kind
+
+
+def print_help():
+  print(__doc__.strip())
+  return 0
+
+def account_argument(rest ,command):
+  if len(rest) > 1:
+    print(f"Error: {command} is given at most one account name." ,file=sys.stderr)
+    return None
+  if not rest:
+    return account_tree.acting_account()
+  entry = account_tree.account(rest[0])
+  if entry is None:
+    print(f"Error: there is no system account named '{rest[0]}'." ,file=sys.stderr)
+  return entry
+
+def command_window(rest):
+  entry = account_argument(rest ,"window")
+  if entry is None: return 1
+  import window
+  return window.run(entry ,account_tree.acting_account())
+
+def command_list(rest):
+  entry = account_argument(rest ,"list")
+  if entry is None: return 1
+  for child in account_tree.child_account_list(entry.name):
+    print(f"{child.name:<28}{child.uid:>7}  {child.home}")
+  return 0
+
+def command_resource(rest):
+  if rest:
+    print("Error: resource is given no arguments." ,file=sys.stderr)
+    return 1
+  for group ,kind_list in resource_kind.kind_list_by_group():
+    print(resource_kind.GROUP_TITLE[group])
+    for kind in kind_list:
+      state = "allocator" if kind.implemented else "not written"
+      print(f"  {kind.name:<20}{state:<13}{kind.description}")
+  return 0
+
+COMMAND = {
+  "window": command_window,
+  "list": command_list,
+  "resource": command_resource,
+}
+
+def CLI(argv=None):
+  if argv is None: argv = sys.argv[1:]
+  if not argv or argv[0] in ("help" ,"-h" ,"--help"): return print_help()
+  command ,rest = argv[0] ,argv[1:]
+  if command not in COMMAND:
+    print(f"Error: unknown command '{command}'." ,file=sys.stderr)
+    print_help()
+    return 1
+  return COMMAND[command](rest)
+
+
+if __name__ == "__main__":
+  try:
+    sys.exit(CLI())
+  except BrokenPipeError:
+    # the reader of our output, such as head, closed the pipe early
+    os.dup2(os.open(os.devnull ,os.O_WRONLY) ,sys.stdout.fileno())
+    sys.exit(1)

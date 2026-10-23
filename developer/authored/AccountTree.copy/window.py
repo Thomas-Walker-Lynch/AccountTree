@@ -1,11 +1,12 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-window - the SubU resource window
+window - the AccountTree resource window
 
-One window shows the resources of one user, the window user, and acts with
-the authority of another, the acting user: the person who started the
-tool. The first window is for the acting user. Clicking a SubU opens that
-SubU's window, still acting with the first user's authority.
+One window shows the resources of one account, the window account, and acts
+with the authority of another, the acting account: the account of the person
+who started the tool. The first window is for the acting account. Clicking a
+child account opens that child account's window, still acting with the first
+account's authority.
 
 The window is made of panels, each a framed area, so that every option is
 visible at once without menus. An option that has no implementation yet is
@@ -15,12 +16,12 @@ The window is drawn with GTK 4, the toolkit of the desktop's own programs,
 so it opens on Wayland directly, or on X when that is what the session has.
 """
 
-import account
+import account_tree
 import authority
 import resource_kind
 
 GTK_MISSING = """\
-SubU window: GTK 4 for Python is not available to {python}
+AccountTree window: GTK 4 for Python is not available to {python}
   {error}
 This Python needs the PyGObject package and the GTK 4 introspection data.
   System Python, openSUSE:  zypper install python313-gobject typelib-1_0-Gtk-4_0   (313 for Python 3.13)
@@ -28,15 +29,15 @@ This Python needs the PyGObject package and the GTK 4 introspection data.
                             python3 -m pip install PyGObject
 """
 
-APPLICATION_ID = "com.ReasoningTechnology.SubU"
+APPLICATION_ID = "com.ReasoningTechnology.AccountTree"
 PAD = 6
 STATE_REFRESH_SECONDS = 5
 
 
 def load_gtk():
   # Draw with cairo, on the processor, and do not open OpenGL at all. A
-  # window of buttons gains nothing from the graphics chip, and a SubU is
-  # often not allowed to open it, which makes GTK print a warning for every
+  # window of buttons gains nothing from the graphics chip, and a child account
+  # is often not allowed to open it, which makes GTK print a warning for every
   # attempt. GDK_DISABLE=gl is read by GTK 4.16 and later. Values already in
   # the environment win.
   import os
@@ -52,11 +53,11 @@ def load_gtk():
 # they stand out on a dark theme and a light one alike. The theme's default
 # frame border is faint on dark themes.
 PANEL_CSS = """
-frame.subu-panel > border {
+frame.account-tree-panel > border {
   border: 1px solid alpha(currentColor ,0.45);
   border-radius: 6px;
 }
-frame.subu-panel > label {
+frame.account-tree-panel > label {
   font-weight: bold;
 }
 """
@@ -84,7 +85,7 @@ def build_window_class(Gtk ,GLib):
       A framed panel and the box its contents go in.
       """
       frame = Gtk.Frame(label=title)
-      frame.add_css_class("subu-panel")
+      frame.add_css_class("account-tree-panel")
       box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL ,spacing=PAD,
         margin_top=PAD ,margin_bottom=PAD ,margin_start=PAD ,margin_end=PAD)
       frame.set_child(box)
@@ -124,32 +125,32 @@ def build_window_class(Gtk ,GLib):
     def authority_line(self):
       """
       Says whose authority the window acts with, when it is not the window
-      user's own.
+      account's own.
       """
-      if self.acting_user.name == self.window_user.name:
+      if self.acting_account.name == self.window_account.name:
         return None
       return self.label(
-        f"<i>acting with the authority of {escape(self.acting_user.name)}</i>" ,markup=True)
+        f"<i>acting with the authority of {escape(self.acting_account.name)}</i>" ,markup=True)
 
 
   class AllocateWindow(PanelHelper ,Gtk.Window):
     """
     The window for allocating resources of one group, such as Storage, to
-    the window user. Each kind of resource in the group is a row: its
+    the window account. Each kind of resource in the group is a row: its
     button, which will open that kind's allocator, and what it is. Options
     a kind offers will be laid out here as allocators are written.
     """
 
-    def __init__(self ,parent ,group ,window_user ,acting_user):
+    def __init__(self ,parent ,group ,window_account ,acting_account):
       super().__init__(transient_for=parent)
-      self.window_user = window_user
-      self.acting_user = acting_user
+      self.window_account = window_account
+      self.acting_account = acting_account
       title = resource_kind.GROUP_TITLE[group]
-      self.set_title(f"SubU: {window_user.name}: allocate {title}")
+      self.set_title(f"AccountTree: {window_account.name}: allocate {title}")
 
       box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL ,spacing=PAD,
         margin_top=PAD ,margin_bottom=PAD ,margin_start=PAD ,margin_end=PAD)
-      box.append(self.label(f"<b>{escape(window_user.name)}</b>" ,markup=True))
+      box.append(self.label(f"<b>{escape(window_account.name)}</b>" ,markup=True))
       line = self.authority_line()
       if line: box.append(line)
 
@@ -159,7 +160,7 @@ def build_window_class(Gtk ,GLib):
       for i ,kind in enumerate(kind_list):
         action = None
         if kind.implemented:
-          action = lambda k=kind: k.allocator(self.window_user ,self.acting_user)
+          action = lambda k=kind: k.allocator(self.window_account ,self.acting_account)
         grid.attach(self.option(kind.name ,kind.description ,action) ,0 ,i ,1 ,1)
         text = kind.description if kind.implemented else f"{kind.description}  (not written yet)"
         description = self.label(text ,dim=not kind.implemented)
@@ -177,21 +178,21 @@ def build_window_class(Gtk ,GLib):
 
   class ResourceWindow(PanelHelper ,Gtk.ApplicationWindow):
 
-    def __init__(self ,application ,window_user ,acting_user):
+    def __init__(self ,application ,window_account ,acting_account):
       super().__init__(application=application)
-      self.window_user = window_user
-      self.acting_user = acting_user
-      self.set_title(f"SubU: {window_user.name}")
+      self.window_account = window_account
+      self.acting_account = acting_account
+      self.set_title(f"AccountTree: {window_account.name}")
 
       grid = Gtk.Grid(column_spacing=PAD ,row_spacing=PAD,
         margin_top=PAD ,margin_bottom=PAD ,margin_start=PAD ,margin_end=PAD)
       grid.set_column_homogeneous(True)
-      #   row 0   User   Authority   Control
-      #   row 1   SubU   Allocate    Allocated
+      #   row 0   Account         Authority   Control
+      #   row 1   Child account   Allocate    Allocated
       grid.attach(self.panel_identity() ,0 ,0 ,1 ,1)
       grid.attach(self.panel_authority(),1 ,0 ,1 ,1)
       grid.attach(self.panel_control()  ,2 ,0 ,1 ,1)
-      grid.attach(self.panel_subu()     ,0 ,1 ,1 ,1)
+      grid.attach(self.panel_child_account() ,0 ,1 ,1 ,1)
       grid.attach(self.panel_allocate() ,1 ,1 ,1 ,1)
       grid.attach(self.panel_allocated(),2 ,1 ,1 ,1)
 
@@ -206,15 +207,17 @@ def build_window_class(Gtk ,GLib):
     # panels
 
     def panel_identity(self):
-      frame ,box = self.panel("User")
-      name = self.window_user.name
-      masu = account.masu_of(name)
+      frame ,box = self.panel("Account")
+      name = self.window_account.name
+      parent = account_tree.parent_of(name)
       box.append(self.label(f"<big><b>{escape(name)}</b></big>" ,markup=True))
-      if masu:
-        relation = f"SubU of {masu}"
+      if not parent:
+        relation = "root, at the top of the account tree"
+      elif parent == "root":
+        relation = "login account, a child of root"
       else:
-        relation = "the system's root user, MasU of every person account"
-      box.append(self.label(f"uid {self.window_user.uid}   {relation}"))
+        relation = f"child account of {parent}"
+      box.append(self.label(f"system uid {self.window_account.uid}   {relation}"))
       line = self.authority_line()
       if line: box.append(line)
       return frame
@@ -232,76 +235,77 @@ def build_window_class(Gtk ,GLib):
         box.append(button)
       return frame
 
-    def panel_subu(self):
+    def panel_child_account(self):
       """
-      One row per SubU of the window user: a button with its name, which
-      opens its window, and its state. The states are read again every few
-      seconds, so a login or logout shows without reopening the window.
+      One row per child account of the window account: a button with its
+      short name, which opens its window, and its state. The states are read
+      again every few seconds, so a session starting or ending shows without
+      reopening the window.
       """
-      frame ,box = self.panel("SubU")
-      subu_list = account.subu_list(self.window_user.name)
-      if not subu_list:
+      frame ,box = self.panel("Child account")
+      child_list = account_tree.child_account_list(self.window_account.name)
+      if not child_list:
         box.append(self.label("(none)" ,dim=True))
         return frame
       grid = Gtk.Grid(column_spacing=PAD*2 ,row_spacing=PAD)
-      self.subu_state_label = []
-      session_uids = account.session_uid_set()
-      for i ,subu in enumerate(subu_list):
-        button = Gtk.Button(label=account.short_name(subu.name))
+      self.child_state_label = []
+      session_set = account_tree.session_system_uid_set()
+      for i ,child in enumerate(child_list):
+        button = Gtk.Button(label=account_tree.short_name(child.name))
         button.get_child().set_xalign(0)
         button.set_hexpand(True)
         button.set_tooltip_text(
-          f"open the resource window of {subu.name}, "
-          f"acting with the authority of {self.acting_user.name}")
-        button.connect("clicked" ,lambda b ,s=subu: self.open_subu(s))
+          f"open the resource window of {child.name}, "
+          f"acting with the authority of {self.acting_account.name}")
+        button.connect("clicked" ,lambda b ,c=child: self.open_child_account(c))
         grid.attach(button ,0 ,i ,1 ,1)
-        state = self.label(account.state(subu ,session_uids))
+        state = self.label(account_tree.state(child ,session_set))
         grid.attach(state ,1 ,i ,1 ,1)
-        self.subu_state_label.append((subu ,state))
+        self.child_state_label.append((child ,state))
       box.append(grid)
-      GLib.timeout_add_seconds(STATE_REFRESH_SECONDS ,self.refresh_subu_state)
+      GLib.timeout_add_seconds(STATE_REFRESH_SECONDS ,self.refresh_child_state)
       return frame
 
-    def refresh_subu_state(self):
-      session_uids = account.session_uid_set()
-      for subu ,label in self.subu_state_label:
-        label.set_text(account.state(subu ,session_uids))
+    def refresh_child_state(self):
+      session_set = account_tree.session_system_uid_set()
+      for child ,label in self.child_state_label:
+        label.set_text(account_tree.state(child ,session_set))
       return self.get_visible()       # False stops the timer once the window is closed
 
     def panel_allocated(self):
       frame ,box = self.panel("Allocated")
-      user = self.window_user
-      state = "present" if user.home_exists else "not found"
-      box.append(self.label(f"home directory   {user.home}   ({state})"))
+      window_account = self.window_account
+      state = "present" if window_account.home_exists else "not found"
+      box.append(self.label(f"home   {window_account.home}   ({state})"))
       box.append(self.label("other resources: there is no resource database yet" ,dim=True))
       return frame
 
     def panel_control(self):
       """
-      What can be done to the window user as a whole: its sessions, and
-      its account's life.
+      What can be done to the window account as a whole: its sessions, and
+      its life.
       """
       frame ,box = self.panel("Control")
       box.append(self.row([
-        self.option("login",
-          "open a shell or desktop session as this user (subu_login does this today)"),
-        self.option("logout" ,"end every session and user service of this user"),
+        self.option("enter",
+          "open a shell or desktop session in this account (the old subu_login script does this today)"),
+        self.option("end sessions" ,"end every session and service of this account"),
         self.option("take sound",
-          "give this user the sound card lease (subu_sound does this today)"),
+          "give this account the sound card lease (the old subu_sound script does this today)"),
       ]))
       box.append(self.row([
-        self.option("rename" ,"give this user a new name; its uid and files stay"),
-        self.option("deprecate" ,"lock this user and end its sessions; its data and name are kept"),
+        self.option("rename" ,"give this account a new name; its uid and files stay"),
+        self.option("deprecate" ,"lock this account and end its sessions; its data and name are kept"),
         self.option("deallocate",
-          "remove this user once deprecated; its data is archived or destroyed and its uid retired"),
+          "remove this account once deprecated; its data is archived or destroyed and its uid retired"),
       ]))
       return frame
 
     def panel_authority(self):
       frame ,box = self.panel("Authority")
-      acting = self.acting_user
-      box.append(self.label(f"acting user   {acting.name}   (uid {acting.uid})"))
-      decision = authority.request(acting.name ,"view" ,self.window_user.name)
+      acting = self.acting_account
+      box.append(self.label(f"acting account   {acting.name}   (system uid {acting.uid})"))
+      decision = authority.request(acting.name ,"view" ,self.window_account.name)
       box.append(self.label(f"authority   {decision.reason}" ,dim=True))
       return frame
 
@@ -309,10 +313,10 @@ def build_window_class(Gtk ,GLib):
     # actions
 
     def open_allocate(self ,group):
-      AllocateWindow(self ,group ,self.window_user ,self.acting_user).present()
+      AllocateWindow(self ,group ,self.window_account ,self.acting_account).present()
 
-    def open_subu(self ,subu):
-      ResourceWindow(self.get_application() ,subu ,self.acting_user).present()
+    def open_child_account(self ,child):
+      ResourceWindow(self.get_application() ,child ,self.acting_account).present()
 
   return ResourceWindow
 
@@ -321,7 +325,7 @@ def escape(text):
   return text.replace("&" ,"&amp;").replace("<" ,"&lt;").replace(">" ,"&gt;")
 
 
-def run(window_user ,acting_user):
+def run(window_account ,acting_account):
   import sys
   try:
     Gtk ,Gio ,GLib = load_gtk()
@@ -334,5 +338,5 @@ def run(window_user ,acting_user):
   application = Gtk.Application(application_id=APPLICATION_ID,
     flags=Gio.ApplicationFlags.NON_UNIQUE)
   application.connect("activate",
-    lambda app: ResourceWindow(app ,window_user ,acting_user).present())
+    lambda app: ResourceWindow(app ,window_account ,acting_account).present())
   return application.run([])

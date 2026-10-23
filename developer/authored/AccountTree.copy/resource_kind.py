@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-resource_kind - the kinds of resource a user can be allocated
+resource_kind - the kinds of resource an account can be allocated
 
 Each resource kind is listed once here. The window builds its Allocate
 panel from this list, so a kind that is listed but has no allocator yet
@@ -36,29 +36,29 @@ GROUP_TITLE = {
 }
 
 KIND_LIST = [
-  ResourceKind("SubU" ,"account",
-    "a new user owned by this user; it opens its own resource window"),
-  ResourceKind("capture user" ,"account",
-    "take an existing user on this system as a SubU; the authority decides whether this is allowed"),
+  ResourceKind("child account" ,"account",
+    "a new account below this one; it opens its own resource window"),
+  ResourceKind("capture account" ,"account",
+    "take an existing system account as a child account of this one; the authority decides whether this is allowed"),
 
   ResourceKind("home directory" ,"storage",
-    "the user's own home, kept on a device and mounted at /home/<user>"),
+    "the account's own home, kept on a storage and mounted at /home/<account>"),
   ResourceKind("view" ,"storage",
-    "a mapped mount that shows another user's files as owned by this user"),
-  ResourceKind("storage device" ,"storage",
-    "a removable or encrypted device this user may open and mount"),
+    "an idmapped mount that shows a child account's files as owned by this account"),
+  ResourceKind("storage" ,"storage",
+    "a persistent storage device, removable or encrypted, this account may open and attach"),
 
   ResourceKind("network zone" ,"network",
-    "a network namespace of the user's own; all of the user's traffic goes through it"),
+    "a network namespace of the account's own; all of the account's traffic goes through it"),
   ResourceKind("WireGuard tunnel" ,"network",
     "a tunnel from the network zone to a remote machine"),
   ResourceKind("forwarded service" ,"network",
     "a local service (DNS, mail, ...) carried to the remote end of the tunnel, so it does not leak"),
 
   ResourceKind("display" ,"device",
-    "permission to open windows on the MasU's display"),
+    "permission to open windows on the parent account's display"),
   ResourceKind("sound card" ,"device",
-    "the lease on the sound card; one user holds it at a time (subu_sound does this today)"),
+    "the lease on the sound card; one account holds it at a time (the old subu_sound script does this today)"),
   ResourceKind("graphics chip" ,"device",
     "use of the GPU, or of a virtual slice of it"),
   ResourceKind("USB device" ,"device",

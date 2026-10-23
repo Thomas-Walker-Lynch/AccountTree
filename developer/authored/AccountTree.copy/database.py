@@ -1,11 +1,11 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-database - the two kinds of SubU database
+database - the two kinds of AccountTree database
 
-  storage database   <SubU dir>/database.sqlite3, identified by its database uuid
-                     The SubU dir is <storage root>/home/SubU, so on the disk a
-                     system runs from it is /home/SubU.
-  system database    /var/lib/SubU/system.sqlite3, identified by its system uuid
+  storage database   <tree dir>/database.sqlite3, identified by its database uuid.
+                     The tree dir is <storage root>/home/AccountTree, so on the
+                     disk a system runs from it is /home/AccountTree.
+  system database    /var/lib/AccountTree/system.sqlite3, identified by its system uuid
 
 Each kind has its own schema, schema_storage.sql and schema_system.sql, and
 both share the machinery here. Every change is made inside a transaction (see
@@ -26,7 +26,15 @@ from pathlib import Path
 
 STANDARD = "5.0"
 STANDARD_FOLLOWED = {"5.0"}
-GENESIS_HASH = "0" * 64
+
+
+def genesis_hash(kind ,uuid_text) -> str:
+  """
+  The hash the first transaction follows. It is made from the database's
+  kind and the uuid it was made with, so no two databases' chains can
+  coincide, and a record cannot be moved from one database into another.
+  """
+  return hashlib.sha256(f"AccountTree {kind} {uuid_text}".encode("utf-8")).hexdigest()
 
 HERE = Path(__file__).resolve().parent
 
@@ -36,18 +44,18 @@ KIND = {
   "system": (HERE / "schema_system.sql" ,"system_uuid"),
 }
 
-SYSTEM_DIR = Path("/var/lib/SubU")
+SYSTEM_DIR = Path("/var/lib/AccountTree")
 SYSTEM_DATABASE_PATH = SYSTEM_DIR / "system.sqlite3"
 
 
 def now() -> str:
-  return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S Z")
+  return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
-def storage_database_path(subu_dir) -> Path:
-  return Path(subu_dir) / "database.sqlite3"
+def storage_database_path(tree_dir) -> Path:
+  return Path(tree_dir) / "database.sqlite3"
 
-def user_data_dir(subu_dir) -> Path:
-  return Path(subu_dir) / "user_data"
+def account_data_dir(tree_dir) -> Path:
+  return Path(tree_dir) / "account_data"
 
 def transaction_hash(previous_hash ,series ,description ,change_text ,nonce) -> str:
   text = "\n".join([previous_hash ,str(series) ,description ,change_text ,nonce])
@@ -113,10 +121,11 @@ class Database:
     connection.row_factory = sqlite3.Row
     database = cls(connection ,path ,kind)
     connection.executescript(database.schema_path.read_text(encoding="utf-8"))
+    uuid_text = str(uuid4())
     connection.execute("BEGIN")
     connection.execute(
-      f"INSERT INTO identity({database.uuid_column} ,series ,head_hash ,created) VALUES (? ,0 ,? ,?)",
-      (str(uuid4()) ,GENESIS_HASH ,now()))
+      f"INSERT INTO identity({database.uuid_column} ,genesis_uuid ,series ,head_hash ,created) VALUES (? ,? ,0 ,? ,?)",
+      (uuid_text ,uuid_text ,genesis_hash(kind ,uuid_text) ,now()))
     connection.execute("COMMIT")
     with database.transaction(f"make {kind} database") as t:
       t.execute("INSERT INTO standard(version) VALUES (?)" ,(STANDARD,))
@@ -148,6 +157,23 @@ class Database:
     The first eight digits of the uuid, for log lines.
     """
     return self.uuid()[:8]
+
+  def head(self):
+    """
+    (series ,head hash) of the last transaction.
+    """
+    d = self.identity()
+    return d["series"] ,d["head_hash"]
+
+  def has_head(self ,series ,head_hash) -> bool:
+    """
+    Whether this database's record holds the transaction with that series
+    number and hash: whether this database is, or descends from, the one that
+    had that head.
+    """
+    if series == 0:
+      return head_hash == genesis_hash(self.kind ,self.identity()["genesis_uuid"])
+    return self.row("SELECT 1 FROM transaction_log WHERE series = ? AND hash = ?" ,(series ,head_hash)) is not None
 
   def last_change(self):
     return self.connection.execute("SELECT MAX(time) AS t FROM transaction_log").fetchone()["t"]
@@ -201,7 +227,7 @@ class Database:
     """
     problem = []
     identity = self.identity()
-    previous = GENESIS_HASH
+    previous = genesis_hash(self.kind ,identity["genesis_uuid"])
     expected_series = 1
     log = self.rows("SELECT * FROM transaction_log ORDER BY series")
     for entry in log:
@@ -230,8 +256,9 @@ class Database:
     replay = sqlite3.connect(":memory:")
     replay.executescript(self.schema_path.read_text(encoding="utf-8"))
     identity = self.identity()
-    replay.execute(f"INSERT INTO identity({self.uuid_column} ,series ,head_hash ,created) VALUES (? ,0 ,? ,?)",
-      (identity[self.uuid_column] ,GENESIS_HASH ,identity["created"]))
+    genesis_uuid = identity["genesis_uuid"]
+    replay.execute(f"INSERT INTO identity({self.uuid_column} ,genesis_uuid ,series ,head_hash ,created) VALUES (? ,? ,0 ,? ,?)",
+      (genesis_uuid ,genesis_uuid ,genesis_hash(self.kind ,genesis_uuid) ,identity["created"]))
     try:
       for entry in log:
         for statement ,parameter in json.loads(entry["change"]):
@@ -247,7 +274,9 @@ class Database:
       there = sorted((tuple(r) for r in replay.execute(f"SELECT * FROM {table}")) ,key=repr)
       if here != there:
         problem.append(f"table {table} differs from the replay of the record")
-    column = f"SELECT {self.uuid_column} ,created FROM identity"
+    # every column of identity but series and head_hash, which the chain sets
+    column_list = [c[1] for c in replay.execute("PRAGMA table_info(identity)") if c[1] not in ("series" ,"head_hash")]
+    column = "SELECT " + " ,".join(column_list) + " FROM identity"
     if tuple(self.connection.execute(column).fetchone()) != tuple(replay.execute(column).fetchone()):
       problem.append("table identity differs from the replay of the record")
     return problem
