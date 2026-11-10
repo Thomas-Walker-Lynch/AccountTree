@@ -30,7 +30,9 @@ MACHINE_DIR      ?= scratchpad/made
 
 LIBRARY_FILE     ?= $(LIBRARY_DIR)/lib$(LIBRARY_NAME).a
 
-LN_FLAGS         ?= -L$(LIBRARY_DIR) -L/lib64 -L/lib -l$(LIBRARY_NAME)
+# the project library is linked only when the namespace makes one
+LN_FLAGS         ?= -L$(LIBRARY_DIR) -L/lib64 -L/lib $(if $(object_lib),-l$(LIBRARY_NAME))
+# LN_FLAGS         ?= -L$(LIBRARY_DIR) -L/lib64 -L/lib -l$(LIBRARY_NAME)
 
 KMOD_SOURCE_DIR  ?= authored
 KMOD_CCFLAGS     ?= -I $(KMOD_SOURCE_DIR)

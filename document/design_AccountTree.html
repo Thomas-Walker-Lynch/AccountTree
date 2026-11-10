@@ -24,7 +24,7 @@
     <RT·article>
       <RT·title
         author="Thomas Walker Lynch"
-        date="2026-10-21"
+        date="2026-11-04"
         title="AccountTree 5.0 Design">
       </RT·title>
 
@@ -72,7 +72,7 @@
       </ul>
 
       <p>
-        Every account is entered through its parent. Root enters its child accounts through the system's login programs, the display manager, <RT·code>login</RT·code> at the console and <RT·code>sshd</RT·code>, which run as root and start a session for a person who gives a password or a key. A login account enters its child accounts through the AccountTree server, which starts sessions and programs in them; an account below a login account has no password, and the login programs do not enter it. The rule is the same at every level of the tree. Only the means differ, and the means for root's children are the ones Linux already has.
+        Every account is entered through its parent. Root enters its child accounts through the system's login programs, the display manager, <RT·code>login</RT·code> at the console and <RT·code>sshd</RT·code>, which run under root and start a session for a person who gives a password or a key. A login account enters its child accounts through the AccountTree server, which starts sessions and programs in them; an account below a login account has no password, and the login programs do not enter it. The rule is the same at every level of the tree. Only the means differ, and the means for root's children are the ones Linux already has.
       </p>
 
       <p>
@@ -102,8 +102,8 @@
         <li><RT·term>account specifier</RT·term>: the name of an account in one place: <RT·code>system &lt;host name&gt; &lt;system account&gt;</RT·code>, or <RT·code>storage &lt;tree dir&gt; &lt;storage account&gt;</RT·code>.</li>
         <li><RT·term>same account</RT·term>: two account specifiers that name one account in two places. The system map records which system accounts are the same accounts as which storage accounts.</li>
         <li><RT·term>view</RT·term>: an idmapped mount through which a parent account sees a child account's files as its own.</li>
-        <li><RT·term>server</RT·term>: the program that changes accounts, databases and mounts on behalf of persons. It runs as an unprivileged account of its own, <RT·code>AccountTree</RT·code>, and makes every change to the system through journal interpreters.</li>
-        <li><RT·term>journal interpreter</RT·term>: a small privileged program of Man-In-Grey's design that receives a journal of commands, has its guard check every command against its constraints, and only then executes them. AccountTree has one bespoke journal interpreter for each of its command languages. <RT·code>design_Man-In-Grey.html</RT·code> gives the design.</li>
+        <li><RT·term>server</RT·term>: the program that changes accounts, databases and mounts on behalf of persons. It runs under an unprivileged account of its own, <RT·code>AccountTree</RT·code>, and makes every change to the system through journal interpreters.</li>
+        <li><RT·term>journal interpreter</RT·term>: a small program of Man_In_Grey's design, run under root through its gate, that receives a journal of commands, has its guard check every command against its constraints, and only then executes them. AccountTree has one bespoke journal interpreter for each of its command languages. <RT·code>Man_In_Grey.html</RT·code> gives the design.</li>
         <li><RT·term>unmanaged account</RT·term>: an account AccountTree does not manage, such as root, a service's account, or an account made with <RT·code>useradd</RT·code> by hand.</li>
       </ul>
 
@@ -255,7 +255,7 @@
       </ul>
 
       <p>
-        At attach, the database uids of the storage are to be compared with the system uids in use, from the system's account database, which includes directory services, and from <RT·code>/etc/subuid</RT·code>. Each coincidence is logged with the system account that would appear to own the raw files. A coincidence is not refused: through the mounts each account sees its own files correctly, and the raw files are behind the tree dir, which only the server's account and root can enter. It is reported because a tool that works by uid on the raw files, run as root, would treat them as that account's. This check is not yet built.
+        At attach, the database uids of the storage are to be compared with the system uids in use, from the system's account database, which includes directory services, and from <RT·code>/etc/subuid</RT·code>. Each coincidence is logged with the system account that would appear to own the raw files. A coincidence is not refused: through the mounts each account sees its own files correctly, and the raw files are behind the tree dir, which only the server's account and root can enter. It is reported because a tool that works by uid on the raw files, run under root, would treat them as that account's. This check is not yet built.
       </p>
 
       <p>
@@ -407,7 +407,7 @@
       </p>
 
       <p>
-        The server owns AccountTree's records: the system database, <RT·code>/var/lib/AccountTree/system.sqlite3</RT·code>, and on each storage the tree dir and its storage database. It reads and writes them with its own rights. Every change to the system itself, an account in <RT·code>/etc/passwd</RT·code>, a home directory owned by a database uid, a mount, a session in another account, needs privilege the server does not have. For those the server composes a journal and hands it to a bespoke journal interpreter, through the interpreter's gate, following the design of Man-In-Grey.
+        The server owns AccountTree's records: the system database, <RT·code>/var/lib/AccountTree/system.sqlite3</RT·code>, and on each storage the tree dir and its storage database. It reads and writes them with its own rights. Every change to the system itself, an account in <RT·code>/etc/passwd</RT·code>, a home directory owned by a database uid, a mount, a session in another account, needs privilege the server does not have. For those the server composes a journal and hands it to a bespoke journal interpreter, through the interpreter's gate, following the design of Man_In_Grey.
       </p>
 
       <p>
@@ -421,7 +421,7 @@
       </p>
 
       <p>
-        The requesting account is the principal of every journal the server composes for the request. A journal interpreter sees the server's account as its caller, and accepts a principal named in a journal only because the server's account is listed, in a table root owns, as entitled to name one. So the decision about who asked rests on the kernel at the socket, and the decision about what is allowed rests on the journal interpreter's guardrails.
+        The requesting account is named in every journal the server composes for the request. A journal interpreter sees the server's account as the orchestrator account, and accepts a requesting account named in a journal only because the server's account is listed in <RT·code>relay_account</RT·code>, in constraints root owns. So the decision about who asked rests on the kernel at the socket, and the decision about what is allowed rests on the journal interpreter's constraints.
       </p>
 
       <h2>Requests</h2>
@@ -442,7 +442,7 @@
       </ul>
 
       <p>
-        The administrator's commands are not requests. <RT·code>AccountTree_admin</RT·code> runs as root, so it can change the system directly, but it composes the same journals and hands them to the same journal interpreters, with root as caller and principal. The code that changes the system then lives in one place, the journal interpreters, and the constraints catch the administrator's mistakes as they catch the server's. Making accounts the same, attaching, detaching and setting limits work while the server is stopped, at boot for instance. The server and <RT·code>AccountTree_admin</RT·code> both write the databases; SQLite's lock lets one transaction in at a time.
+        The administrator's commands are not requests. <RT·code>AccountTree_admin</RT·code> runs under root, so it can change the system directly, but it composes the same journals and hands them to the same journal interpreters, with root as the orchestrator account and no requesting account named. The code that changes the system then lives in one place, the journal interpreters, and the constraints catch the administrator's mistakes as they catch the server's. Making accounts the same, attaching, detaching and setting limits work while the server is stopped, at boot for instance. The server and <RT·code>AccountTree_admin</RT·code> both write the databases; SQLite's lock lets one transaction in at a time.
       </p>
 
       <h2>Command languages and constraints</h2>
@@ -455,11 +455,11 @@
         <li><em>Account.</em> Commands: make a system account with a given name and system uid; delete a system account; delete its group. Constraints: the name is a valid account name; a new system uid lies in AccountTree's range and appears in no row of the system map; a system account is deleted only when the system map records that AccountTree made it. Edits <RT·code>/etc/passwd</RT·code>, <RT·code>/etc/shadow</RT·code>, <RT·code>/etc/group</RT·code> and <RT·code>/etc/gshadow</RT·code>.</li>
         <li><em>Home.</em> Commands: make a storage account's home in <RT·code>account_data</RT·code>, owned by its database uid, mode 0700; delete a home and its files. Constraints: the tree dir holds a storage database whose database uuid the system database knows, and the storage account exists there with that database uid; a home is deleted only during the deletion of its storage, or of a deallocated account.</li>
         <li><em>Mount.</em> Commands: make and delete a mount point; mount and unmount a home; mount and unmount a view. Constraints: a home is mounted only from <RT·code>&lt;tree dir&gt;/account_data/&lt;storage account&gt;</RT·code> onto <RT·code>/home/&lt;system account&gt;</RT·code>, where a row of the system map in use pairs the two, with that row's uid translation; a view is mounted only of a child account's home, at <RT·code>~/account_child/&lt;short name&gt;</RT·code> of its parent; every mount is <RT·code>nosuid</RT·code> and <RT·code>nodev</RT·code>; a mount point is an empty directory owned by root with mode 0000, made and deleted only at <RT·code>/home/&lt;system account&gt;</RT·code>.</li>
-        <li><em>Session.</em> Commands: start a session, or a program, in an account. Constraint: the principal is above the account in the tree.</li>
+        <li><em>Session.</em> Commands: start a session, or a program, in an account. Constraint: the requesting account is above the account in the tree.</li>
       </ul>
 
       <p>
-        Each command language needs a different part of root's rights: the account language to write files in <RT·code>/etc</RT·code>, the mount language to mount, the session language to change uid. Separate journal interpreters let each hold only its own part, as Man-In-Grey's design on least privilege describes.
+        Each command language needs a different part of root's rights: the account language to write files in <RT·code>/etc</RT·code>, the mount language to mount, the session language to change uid. Separate journal interpreters let each hold only its own part, as Man_In_Grey's design on least privilege describes.
       </p>
 
       <h2>Partial failure</h2>
@@ -482,7 +482,7 @@
 
       <ul>
         <li>Options that give the service a mount namespace of its own, such as <RT·code>PrivateMounts</RT·code> or <RT·code>ProtectHome</RT·code>. The journal interpreters the server starts inherit its mount namespace, and a mount made there exists only for the service; no account ever sees it.</li>
-        <li><RT·code>NoNewPrivileges</RT·code>, and the options that imply it for a service not running as root. With it set, the kernel ignores the setuid bit and file capabilities of every program the service starts, so the gates run without privilege.</li>
+        <li><RT·code>NoNewPrivileges</RT·code>, and the options that imply it for a service not running under root. With it set, the kernel ignores the setuid bit and file capabilities of every program the service starts, so the gates run without privilege.</li>
       </ul>
 
       <h1>Limits</h1>
@@ -545,7 +545,7 @@
       </p>
 
       <p>
-        An account below a login account is entered through its parent: the parent sends the server an <RT·code>enter</RT·code> request, and the server composes a journal for the session journal interpreter, whose constraint allows the session only when the principal is above the account in the tree. Whether such an account is ever to be entered through the login programs as well is open.
+        An account below a login account is entered through its parent: the parent sends the server an <RT·code>enter</RT·code> request, and the server composes a journal for the session journal interpreter, whose constraint allows the session only when the requesting account is above the account in the tree. Whether such an account is ever to be entered through the login programs as well is open.
       </p>
 
       <p>
@@ -558,7 +558,7 @@
         <li><RT·code>AccountTree</RT·code>: the person's program. Its commands send requests to the server; its <RT·code>window</RT·code> command opens the resource window, which shows the account's child accounts and their states and sends the same requests. Runs as the person's account.</li>
         <li><RT·code>AccountTree_server</RT·code>: the server, started by its systemd unit as the account <RT·code>AccountTree</RT·code>. Nobody types it.</li>
         <li><RT·code>AccountTree_admin</RT·code>: the administrator's program. Root. Its commands: <RT·code>system make</RT·code>, <RT·code>system show</RT·code> and <RT·code>system delete</RT·code>; <RT·code>storage make</RT·code>, <RT·code>storage show</RT·code> and <RT·code>storage delete</RT·code>, each given a tree dir; <RT·code>account make</RT·code>; <RT·code>is-same-account</RT·code>, <RT·code>is-not-same-account</RT·code>, <RT·code>same-account show</RT·code> and <RT·code>same-account suggest</RT·code>; <RT·code>attach</RT·code> and <RT·code>detach</RT·code>; and <RT·code>limit set</RT·code>. At boot, before logins are allowed, <RT·code>attach</RT·code> is run for every storage present, the disk inside the machine included, so that <RT·code>/home</RT·code> is populated. Detaching is refused while a system account it would unmount has a session. Unlocking an encrypted storage and mounting it come later.</li>
-        <li>The bespoke journal interpreters, one for each command language, account, home, mount and session, each a compiled gate followed by a guard and Man-In-Grey's general interpreter. Installed owned by root, in directories only root can write.</li>
+        <li>The bespoke journal interpreters, one for each command language, account, home, mount and session, each a compiled gate followed by a guard and Man_In_Grey's general interpreter. Installed owned by root, in directories only root can write.</li>
         <li><RT·code>home_present</RT·code>: the PAM check.</li>
         <li>The schema and initialization scripts.</li>
       </ul>
@@ -642,7 +642,7 @@
       </p>
 
       <p>
-        The AccountTree server already runs as a service, and is a natural home for a background pass over attached storage. The pass keeps an index of content hashes, gives the kernel call the pairs whose hashes match, and so keeps each storage compacted as it is used. On a file system without shared extents, the pass reports duplicates and changes nothing. The same index serves integration in 7.0.
+        The AccountTree server already runs under a service, and is a natural home for a background pass over attached storage. The pass keeps an index of content hashes, gives the kernel call the pairs whose hashes match, and so keeps each storage compacted as it is used. On a file system without shared extents, the pass reports duplicates and changes nothing. The same index serves integration in 7.0.
       </p>
 
       <h2>Deep freeze</h2>

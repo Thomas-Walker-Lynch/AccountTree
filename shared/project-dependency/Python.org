@@ -1,74 +1,13 @@
-#+TITLE: Python for SubU
+#+TITLE: Python Installation Guide
 #+AUTHOR: Project Administrator
 
-SubU's tools are Python programs, and its window is drawn with GTK 4 through PyGObject, the GTK bindings for Python. GTK talks to the desktop's display directly, Wayland or X, as the desktop's own programs do.
+This project requires a dedicated Python environment. The configuration plugin (`shared/project-dependency/Python.init`) was written targeting Python 3.12.3, though the architecture does not rely on any known version-dependent features.
 
-There are two ways to provide the Python. Choose one.
+The build below can be moved. Nothing in it records the absolute directory it was built in where the interpreter depends on it, so the directory can move with a home directory, or to another machine, and keep working.
 
-  - The system Python. Least work: install two packages, section 1, and stop there.
-  - A project Python, built from source as a sibling of the project and linked into it. The project then does not depend on the system's Python version. Build the vanilla Python of section 3 first, then add what SubU needs, section 2.
+* 1. Install the development libraries
 
-The role setup decides which one a shell gets. shared/project-dependency/Python.init puts the project Python at the front of PATH when shared/project-dependency/Python-3.12.3 leads to a build that runs. When there is no such build, or it does not run, python3 is the system's. Running the tools with the system Python therefore needs nothing more than not installing the project Python.
-
-The package names below are for openSUSE; zypper search finds the name of one that differs on another release, and other distributions name the same libraries similarly.
-
-* 1. Using the system Python
-
-Install PyGObject for the system Python, and the GTK 4 introspection data. Introspection data is the machine-readable description of GTK's interface, which PyGObject reads at run time to call into GTK.
-
-#+begin_src bash
-sudo zypper install python313-gobject typelib-1_0-Gtk-4_0
-#+end_src
-
-The 313 in the first name is the system Python's version, 3.13; find yours with python3 --version.
-
-Check:
-
-#+begin_src bash
-python3 -c 'import gi; gi.require_version("Gtk" ,"4.0"); from gi.repository import Gtk; print("GTK" ,Gtk.get_major_version())'
-#+end_src
-
-* 2. SubU's additions to the project Python
-
-A Python built from source has only its standard library. The system's PyGObject cannot be borrowed: it is installed in the system Python's own module directory, and is compiled for that Python's version. The project Python gets its own copy, compiled by pip against the GTK libraries already on the system.
-
-** 2.1 System development files
-
-pip compiles PyGObject and pycairo, the Python bindings for cairo, the drawing library GTK uses. Compiling needs the C development files of both libraries; the libraries themselves are already present on any desktop that runs GTK programs. The GTK 4 introspection data is read when the window opens.
-
-#+begin_src bash
-sudo zypper install cairo-devel gobject-introspection-devel typelib-1_0-Gtk-4_0
-#+end_src
-
-** 2.2 Install PyGObject
-
-Run this in a role shell, so that python3 is the project Python, and with the Python's pkg-config files moved aside for the length of the install:
-
-#+begin_src bash
-mv shared/project-dependency/Python-3.12.3/lib/pkgconfig shared/project-dependency/Python-3.12.3/lib/pkgconfig.off
-python3 -m pip install PyGObject
-mv shared/project-dependency/Python-3.12.3/lib/pkgconfig.off shared/project-dependency/Python-3.12.3/lib/pkgconfig
-#+end_src
-
-Why the move. The build system pycairo uses, Meson, asks pkg-config where Python's header files are, and pkg-config answers from lib/pkgconfig/python-3.12.pc. When the Python's path holds a character outside ASCII, such as the middle dot of a SubU home directory (/home/Thomas·developer), pkg-config prints that character with a backslash before each of its bytes, which is no longer valid UTF-8, and Meson stops with "'utf-8' codec can't decode byte 0xc2 ... invalid continuation byte". With the .pc files out of sight, Meson asks the Python interpreter itself, and its answer is correct. The .pc files serve only C programs that build against Python, so moving them aside for the install affects nothing else. On a path of plain ASCII the move is unnecessary but harmless.
-
-If a build stops with "Dependency ... found: NO", the development files of that library are missing; install its -devel package and run pip again.
-
-** 2.3 Check
-
-#+begin_src bash
-python3 -c 'import gi; gi.require_version("Gtk" ,"4.0"); from gi.repository import Gtk; print("GTK" ,Gtk.get_major_version())'
-#+end_src
-
-* 3. The vanilla project Python
-
-This is the Harmony recipe for a project Python, unchanged. It is written for Python 3.12.3, though nothing in the project depends on version-specific features.
-
-The build can be moved. Nothing it depends on records the absolute directory it was built in, so the directory can move with a home directory, or to another machine with compatible system libraries, and keep working.
-
-** 3.1 Install the development libraries
-
-Python's configure step looks for the development files of each optional library, and silently leaves out any module whose library it does not find. A build without sqlite3-devel, for example, has no sqlite3 module, and the gap shows only when a program imports it. Install these first.
+Python's configure step looks for the development files of each optional library, and silently leaves out any module whose library it does not find. A build without sqlite3-devel, for example, has no sqlite3 module, and the gap shows only when a program imports it. Install these first. The names are for openSUSE; zypper search finds the name of one that differs.
 
 #+begin_src bash
 sudo zypper install gcc make sqlite3-devel libopenssl-devel libffi-devel zlib-devel \
@@ -77,9 +16,10 @@ sudo zypper install gcc make sqlite3-devel libopenssl-devel libffi-devel zlib-de
 
 zlib-ng-compat-devel serves in place of zlib-devel, and the two conflict; if zypper reports that conflict, keep the one already installed.
 
-** 3.2 Download and extract
+tk-devel gives the tkinter module, which the window programs use.
 
-Download the Python source code and extract it as a sibling of the project directory. From the top of the project:
+* 2. Download and Extract
+Download the Python source code and extract it as a sibling to the main project directory. Assuming you are at the top level of your project workspace:
 
 #+begin_src bash
 cd ../
@@ -88,9 +28,8 @@ tar -xzf Python-3.12.3.tgz
 cd Python-3.12.3
 #+end_src
 
-** 3.3 Build
-
-Compile in place. Setting the installation prefix to the current directory isolates the build.
+* 3. Build the Environment
+Compile the Python binaries in place. Setting the installation prefix to the current directory isolates the build.
 
 #+begin_src bash
 CONFIG_SITE= ./configure --prefix="$(pwd)" --libdir="$(pwd)/lib" --enable-optimizations
@@ -106,14 +45,14 @@ The build is static: the interpreter is one program, with no separate libpython3
 
 Near the end of build.log, make lists any optional modules it could not build, under "The necessary bits to build these optional modules were not found". nis, an obsolete network directory service, and _curses_panel may appear there; the project uses neither. For any other module listed, install the missing development library and build again.
 
-** 3.4 Check the build
+* 4. Check the build
 
 #+begin_src bash
 bin/python3 -c 'import sys ,ssl ,sqlite3 ,ctypes ,lzma ,bz2 ,readline ,tkinter; print(sys.prefix)'
 ldd bin/python3 | grep libpython        # prints nothing: no shared libpython
 #+end_src
 
-** 3.5 Use pip through the interpreter
+* 5. Use pip through the interpreter
 
 The scripts make install writes into bin/, such as pip3, start with a #! line naming the absolute path of the interpreter, so they break when the directory moves. Run pip as a module instead, which uses whichever interpreter runs it:
 
@@ -121,8 +60,12 @@ The scripts make install writes into bin/, such as pip3, start with a #! line na
 python3 -m pip install <package>
 #+end_src
 
-** 3.6 Link the project
+* 6. Link the Project
 
-The project reaches the build through shared/project-dependency/Python-3.12.3, a link to project/Python-3.12.3, where project is the link to the directory holding this project and its siblings. A build extracted as a sibling of the project, as in 3.2, is found without further steps.
+Python-3.12.3 is linked to a Harmony derived project by default.
 
-See administrator/document/how-to_add-project-dependency.html for how dependencies are linked, or to link a different version.
+See administrator/document/how-to_add-project-dependency.html for details about linking a project, if you want to check the setup.
+
+If you are installing a different version, then at least the Python-3.12.3 version project linking is there as a good example.
+
+Project linking is not difficult, make a sym link to `project/<dependency>`, and then add an init file, as described in administrator/document/how-to_add-project-dependency.html. The 'project' in the link is literal.

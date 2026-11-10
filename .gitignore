@@ -29,6 +29,6 @@ __pycache__/
 *.swp
 .DS_Store
 
-# SubU
+# AccountTree
 __pycache__
 *.sqlite3

@@ -74,6 +74,8 @@ umask 0077
   PATH="$REPO_HOME/shared/authored:$PATH"
 
   # Remove duplicates, keeping the first occurrence
+  #   Done with bash built-ins only. A pipeline through awk and sed left PATH
+  #   empty whenever either program failed to run.
   clean_path(){
     local entry result=""
     local -A seen=()
