@@ -44,6 +44,24 @@ KIND = {
   "system": (HERE / "schema_system.sql" ,"system_uuid"),
 }
 
+# Tables added to a kind's schema after databases of that kind were first made.
+# Opening an existing database makes each one that is missing. A table made
+# this way is empty, so the record's replay, built from the schema file, still
+# matches; the statements are taken from the schema file itself, between the
+# marker lines, so the two cannot drift apart.
+def schema_added_text(kind) -> str:
+  text = KIND[kind][0].read_text(encoding="utf-8")
+  start = "CREATE TABLE IF NOT EXISTS"
+  if start not in text:
+    return ""
+  tail = text[text.index(start):]
+  # the added statements end where the next table without IF NOT EXISTS begins
+  end = tail.find("\nCREATE TABLE ")
+  while end != -1 and tail[end + 1:].startswith("CREATE TABLE IF NOT EXISTS"):
+    end = tail.find("\nCREATE TABLE " ,end + 1)
+  body = tail if end == -1 else tail[:end]
+  return "\n".join(line for line in body.splitlines() if not line.startswith("--"))
+
 SYSTEM_DIR = Path("/var/lib/AccountTree")
 SYSTEM_DATABASE_PATH = SYSTEM_DIR / "system.sqlite3"
 
@@ -101,6 +119,9 @@ class Database:
     connection.row_factory = sqlite3.Row
     database = cls(connection ,path ,kind)
     database.check_standard()
+    added = schema_added_text(kind)
+    if added:
+      connection.executescript(added)
     return database
 
   @classmethod

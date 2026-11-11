@@ -3,7 +3,7 @@
 """
 AccountTree_admin
 
-The administrator's program. It runs as root, and calls the work functions
+The administrator's program. It runs under root, and calls the work functions
 directly, so it works whether or not the AccountTree server is running. A
 person manages the child accounts of his own login account with the
 AccountTree program.
@@ -44,6 +44,10 @@ Usage: AccountTree_admin <command> [argument ...]
                                  the range of system uids AccountTree gives out
                                  (default 2000 to 59999)
   system show                    print the system database, and verify it
+  system configure               write the systemd units and udev rules that plug and
+                                 unplug removable storage, and reload systemd and udev.
+                                 A file of the same name that AccountTree did not make
+                                 is reported and left alone
   system delete                  delete the system database; refused while any system
                                  account is the same account as a storage account
 
@@ -58,6 +62,34 @@ Usage: AccountTree_admin <command> [argument ...]
                                  AccountTree made and keeps adopted ones. Homes
                                  holding files are deleted only with
                                  delete-account-data
+
+  storage register <tree dir> [name <storage name>]
+                                 record a removable storage, while it is unlocked and
+                                 mounted: its LUKS2 partition, the FIDO2 key enrolled
+                                 in it, its storage database, and where it is mounted.
+                                 The storage name is the mount directory's name unless
+                                 given
+  storage unregister <storage name>
+                                 retire that record
+  storage plug <device> [passphrase]
+                                 unlock a registered storage's partition with the key
+                                 plugged in, mount it, attach it, and offer its login
+                                 accounts on the login screen. Pulling the key out
+                                 then unplugs it. passphrase asks for the passphrase on
+                                 this terminal instead, and watches no key. Run by
+                                 AccountTree-plug@.service when the drive is plugged in
+  storage plug all               plug every registered storage plugged in and locked.
+                                 Run by AccountTree-key-arrive.service when a key is
+                                 plugged in
+  storage unplug <storage name or device>
+                                 end every process of its accounts, whoever is at the
+                                 console, unmount their homes, hide them from the login
+                                 screen, unmount and lock the storage, and power the
+                                 drive off: once its light is out it is safe to pull
+  storage unplug key <key device>
+                                 unplug every storage the key at /dev/hidrawN unlocked.
+                                 Run by AccountTree-key@.service when the key is pulled
+                                 out
 
   account make <tree dir> <name> [uid <database uid>] [parent <name>] [make-system-account]
                                  make a storage account, with its home in account_data;
@@ -100,6 +132,11 @@ Usage: AccountTree_admin <command> [argument ...]
 
 The order on a new system: system make, storage make, account make, attach. To
 undo: storage delete, then system delete.
+
+For a removable storage, once: enroll the key with systemd-cryptenroll
+--fido2-device=auto --fido2-with-client-pin=no <partition>, then system configure,
+then storage register while it is mounted. From then on plugging the drive in, and
+touching the key, plugs it; pulling the key out unplugs it.
 """
 
 import sys ,os
@@ -109,6 +146,8 @@ import common
 import system
 import storage
 import same_account
+import storage_plug
+import system_configuration
 from database import DatabaseError
 
 # first words that take a second word to make the command
@@ -199,7 +238,7 @@ def CLI(argv=None):
     command ,rest = f"{command} {rest[0]}" ,rest[1:]
 
   if command not in READ_ONLY and os.geteuid() != 0 and not preview:
-    print("Error: AccountTree_admin changes the system and must be run as root." ,file=sys.stderr)
+    print("Error: AccountTree_admin changes the system and must be run under root." ,file=sys.stderr)
     return 1
 
   log = common.Log(preview)
@@ -255,6 +294,29 @@ def CLI(argv=None):
     elif command == "detach" and len(rest) == 1:
       header(command ,rest[0] ,preview)
       storage.detach(rest[0] ,log ,preview)
+    elif command == "system configure" and not rest:
+      header(command ,None ,preview)
+      system_configuration.configure(log ,preview)
+    elif command == "storage register" and rest:
+      (tree_dir,) ,keyword = split_keyword(rest ,1 ,() ,("name",))
+      header(command ,tree_dir ,preview)
+      storage_plug.register(tree_dir ,keyword.get("name") ,log ,preview)
+    elif command == "storage unregister" and len(rest) == 1:
+      header(command ,None ,preview)
+      storage_plug.unregister(rest[0] ,log ,preview)
+    elif command == "storage plug" and rest == ["all"]:
+      header(command ,None ,preview)
+      storage_plug.plug_all(log ,preview)
+    elif command == "storage plug" and rest:
+      (device,) ,keyword = split_keyword(rest ,1 ,("passphrase",))
+      header(command ,None ,preview)
+      storage_plug.plug(device ,"passphrase" in keyword ,log ,preview)
+    elif command == "storage unplug" and len(rest) == 2 and rest[0] == "key":
+      header(command ,None ,preview)
+      storage_plug.unplug_key(rest[1] ,log ,preview)
+    elif command == "storage unplug" and len(rest) == 1:
+      header(command ,None ,preview)
+      storage_plug.unplug(rest[0] ,log ,preview)
     elif command == "limit set" and len(rest) == 2:
       header(command ,None ,preview)
       system.limit_set(rest[0] ,integer(rest[1] ,"<maximum>") ,log ,preview)

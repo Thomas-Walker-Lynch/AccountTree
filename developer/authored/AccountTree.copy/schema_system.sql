@@ -77,6 +77,26 @@ CREATE TABLE account_limit (
   maximum     INTEGER NOT NULL
 );
 
+-- Each removable storage registered here: the LUKS2 partition that holds it,
+-- found by its LUKS uuid, the storage database it carries, and where it is
+-- mounted when it is unlocked. The storage name names the device-mapper
+-- device, AccountTree_<storage name>, and the log lines. A row is never
+-- deleted; unregistering retires it. This table was added after the first
+-- system databases were made, so its statements say IF NOT EXISTS, and
+-- opening a system database runs them (see schema_added_text in database.py).
+CREATE TABLE IF NOT EXISTS storage_device (
+  id             INTEGER PRIMARY KEY,
+  storage_name   TEXT NOT NULL,
+  luks_uuid      TEXT NOT NULL,
+  database_uuid  TEXT NOT NULL,
+  mount_dir      TEXT NOT NULL,
+  state          TEXT NOT NULL CHECK (state IN ('registered' ,'retired')),
+  registered     TEXT NOT NULL,
+  retired        TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS storage_device_luks_registered ON storage_device(luks_uuid) WHERE state = 'registered';
+CREATE UNIQUE INDEX IF NOT EXISTS storage_device_name_registered ON storage_device(storage_name) WHERE state = 'registered';
+
 -- Every change. hash covers previous_hash, series, description, change and nonce.
 CREATE TABLE transaction_log (
   series         INTEGER PRIMARY KEY,

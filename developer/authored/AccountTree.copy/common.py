@@ -36,6 +36,8 @@ class Log:
     "made system account": "would make system account" ,"set": "would set" ,"deleted": "would delete",
     "deleted system account": "would delete system account" ,"deleted system group": "would delete system group",
     "retired": "would retire" ,"mapped": "would map" ,"branched": "would branch",
+    "unlocked": "would unlock" ,"locked": "would lock" ,"powered off": "would power off",
+    "ended": "would end" ,"watching": "would watch" ,"written": "would write" ,"reloaded": "would reload",
   }
 
   def __init__(self ,preview):

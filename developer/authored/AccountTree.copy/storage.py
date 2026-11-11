@@ -164,7 +164,7 @@ def storage_delete(tree_dir ,delete_account_data ,forget_other_systems ,log ,pre
     home_count = sum(1 for _ in account_data.iterdir())
     if not act(log ,preview ,str(account_data) ,shutil.rmtree ,account_data): return
     log.line("deleted" ,str(account_data) ,f"{home_count} home" + ("" if home_count == 1 else "s"))
-  short = db.short()
+  short ,database_uuid = db.short() ,db.uuid()
   db.close()
   for entry in sorted(tree_dir.iterdir()):
     if entry.name.startswith("database.sqlite3"):
@@ -172,6 +172,12 @@ def storage_delete(tree_dir ,delete_account_data ,forget_other_systems ,log ,pre
       log.line("deleted" ,str(entry) ,f"database {short}" if entry.name == "database.sqlite3" else None)
   if not act(log ,preview ,str(tree_dir) ,tree_dir.rmdir): return
   log.line("deleted" ,str(tree_dir))
+
+  # ---- its record as a removable storage
+  if system_db is not None:
+    import storage_plug
+    for r in system_db.rows("SELECT * FROM storage_device WHERE database_uuid = ? AND state = 'registered'" ,(database_uuid,)):
+      storage_plug.unregister(r["storage_name"] ,log ,preview)
 
 
 # --------------------------------------------------------------------------------

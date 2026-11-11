@@ -10,6 +10,7 @@ child accounts each system account may have.
 """
 
 import os
+from pathlib import Path
 
 import database
 from database import Database
@@ -77,6 +78,13 @@ def system_show():
                    " WHERE database_uuid = h.database_uuid) ORDER BY h.seen"):
     print(f"  database {h['database_uuid'][:8]}  series {h['series']}  {h['event']} {h['seen']}"
           + (f"  ({h['continuity']})" if h["continuity"] else ""))
+  device_row = db.rows("SELECT * FROM storage_device WHERE state = 'registered' ORDER BY storage_name")
+  if device_row:
+    print("removable storage")
+    for r in device_row:
+      plugged = Path(f"/run/AccountTree/plugged/{r['storage_name']}.json").exists()
+      print(f"  {r['storage_name']:<26}LUKS uuid {r['luks_uuid']}  database {r['database_uuid'][:8]}"
+            f"  at {r['mount_dir']}" + ("  (plugged in)" if plugged else ""))
   limit_row = db.rows("SELECT * FROM account_limit ORDER BY system_uid")
   if limit_row:
     print("limits")

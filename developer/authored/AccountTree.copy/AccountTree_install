@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# -*- mode: sh; indent-tabs-mode: nil; sh-basic-offset: 2 -*-
+#
+# AccountTree_install
+#
+# Install AccountTree from the directory this script is in, the project's
+# consumer/AccountTree, into /usr/local/lib/AccountTree, where only root can
+# change it. The systemd units run AccountTree_admin under root, so the copy
+# they run must be one that no other account can change.
+#
+# The install directory is made to hold exactly the files of the consumer
+# directory: new and changed files are copied, owned by root, and files the
+# consumer directory no longer has are deleted. Python's __pycache__ is left
+# out. Then system configure writes the units and the udev rule, so that they
+# name the installed AccountTree_admin.
+#
+# Run it under root. Whoever installs code that root runs can act as root, so
+# installing is root's own work.
+
+INSTALL_DIR=/usr/local/lib/AccountTree
+
+usage(){
+  cat <<EOF
+Usage: AccountTree_install <command>
+       AccountTree_install preview <command>
+  help | -h | --help    print this message (also printed when given no arguments)
+  run                   install from $(source_dir) into $INSTALL_DIR,
+                        then run AccountTree_admin system configure
+  preview run           print what run would do, change nothing
+EOF
+}
+
+source_dir(){
+  cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd
+}
+
+# the files to install, relative to the source dir, one per line
+file_list(){
+  ( cd "$1" && find . -name __pycache__ -prune -o -type f -print | sed 's|^\./||' | sort )
+}
+
+# mode for an installed file: programs 0755, everything else 0644
+file_mode(){
+  if [ -x "$1" ]; then echo 0755; else echo 0644; fi
+}
+
+install_tree(){
+  local preview=$1 source=$2
+  local count_new=0 count_replaced=0 count_deleted=0 count_unchanged=0
+  local verb_made=made verb_new=installed verb_replaced=replaced verb_deleted=deleted
+  if [ "$preview" = yes ]; then
+    verb_made="would make" verb_new="would install" verb_replaced="would replace" verb_deleted="would delete"
+  fi
+
+  if [ ! -d "$INSTALL_DIR" ]; then
+    printf '  %-16s%s\n' "$verb_made" "$INSTALL_DIR"
+    [ "$preview" = yes ] || install -d -o root -g root -m 0755 "$INSTALL_DIR" || return 1
+  fi
+
+  local f mode
+  while IFS= read -r f; do
+    mode=$(file_mode "$source/$f")
+    if [ ! -e "$INSTALL_DIR/$f" ]; then
+      printf '  %-16s%s\n' "$verb_new" "$f"; count_new=$((count_new + 1))
+    elif ! cmp -s "$source/$f" "$INSTALL_DIR/$f" || [ "$(stat -c %a "$INSTALL_DIR/$f")" != "${mode#0}" ] \
+         || [ "$(stat -c %u:%g "$INSTALL_DIR/$f")" != 0:0 ]; then
+      printf '  %-16s%s\n' "$verb_replaced" "$f"; count_replaced=$((count_replaced + 1))
+    else
+      count_unchanged=$((count_unchanged + 1)); continue
+    fi
+    if [ "$preview" != yes ]; then
+      install -D -o root -g root -m "$mode" "$source/$f" "$INSTALL_DIR/$f" || return 1
+    fi
+  done < <(file_list "$source")
+
+  # files the consumer directory no longer has
+  [ -d "$INSTALL_DIR" ] && while IFS= read -r f; do
+    if [ ! -e "$source/$f" ]; then
+      printf '  %-16s%s\n' "$verb_deleted" "$f"; count_deleted=$((count_deleted + 1))
+      [ "$preview" = yes ] || rm -f -- "$INSTALL_DIR/$f" || return 1
+    fi
+  done < <(file_list "$INSTALL_DIR")
+  [ "$preview" = yes ] || find "$INSTALL_DIR" -mindepth 1 -type d -empty -delete
+
+  echo "summary:"
+  printf '  %4d  %s\n' "$count_new" "$verb_new" "$count_replaced" "$verb_replaced" \
+         "$count_deleted" "$verb_deleted" "$count_unchanged" "unchanged"
+}
+
+CLI(){
+  if [ $# -eq 0 ] || [ "$1" = help ] || [ "$1" = -h ] || [ "$1" = --help ]; then
+    usage; return 0
+  fi
+  local preview=no
+  if [ "$1" = preview ]; then preview=yes; shift; fi
+  if [ "$1" != run ] || [ $# -ne 1 ]; then
+    echo "Error: unknown command '$*'; run 'AccountTree_install help' for the commands." >&2
+    return 1
+  fi
+  if [ "$(id -u)" -ne 0 ]; then
+    echo "Error: AccountTree_install installs code that root runs, and must be run under root." >&2
+    return 1
+  fi
+
+  local source
+  source=$(source_dir) || return 1
+  if [ ! -f "$source/AccountTree_admin" ]; then
+    echo "Error: $source holds no AccountTree_admin; run this script from the consumer directory it was promoted to." >&2
+    return 1
+  fi
+  if [ "$source" = "$INSTALL_DIR" ]; then
+    echo "Error: this is the installed copy; run the AccountTree_install in the project's consumer directory." >&2
+    return 1
+  fi
+
+  local word=""
+  [ "$preview" = yes ] && word="preview "
+  echo "AccountTree_install ${word}run   from $source to $INSTALL_DIR"
+  install_tree "$preview" "$source" || return 1
+
+  if [ "$preview" = yes ]; then
+    "$INSTALL_DIR/AccountTree_admin" preview system configure 2>/dev/null \
+      || echo "  would run        $INSTALL_DIR/AccountTree_admin system configure"
+  else
+    "$INSTALL_DIR/AccountTree_admin" system configure
+  fi
+}
+
+# run the CLI only when executed, so that another script can source the functions
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  CLI "$@"
+fi
