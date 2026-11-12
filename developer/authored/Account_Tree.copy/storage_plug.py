@@ -3,7 +3,7 @@
 storage_plug - plugging and unplugging removable storage, opened by a key
 
 A removable storage is a LUKS2 partition holding a file system whose
-<storage root>/home/AccountTree is a tree dir. Registering it records, in the
+<storage root>/home/Account-Tree is a tree dir. Registering it records, in the
 system database's storage_device table, its LUKS uuid, the storage database it
 carries, its storage name and the directory it is mounted at.
 
@@ -25,7 +25,7 @@ header to each key present in turn, one at a time, naming the key's device
 touch, whether it holds the credential; a key that does not is passed over at
 once, and the key that does turns blue and waits for its button. The device
 whose attempt opened the partition is the key. plug records it in
-/run/AccountTree/plugged/<storage name>.json and starts
+/run/Account-Tree/plugged/<storage name>.json and starts
 AccountTree-key@hidrawN.service, which is bound to the key's device unit:
 when the key is pulled out, systemd stops that service, and its ExecStop runs
 unplug_key.
@@ -33,7 +33,7 @@ unplug_key.
 Runtime records are kept under /run, which is emptied at each boot, because a
 storage unlocked before a reboot is locked after it.
 
-Everything is done under a lock, /run/AccountTree/lock, so that the plug
+Everything is done under a lock, /run/Account-Tree/lock, so that the plug
 started by the drive and the plug started by the key, which arrive together
 at boot, take turns.
 """
@@ -51,7 +51,7 @@ from system import open_system_database
 import same_account
 import storage
 
-RUN_DIR = Path("/run/AccountTree")
+RUN_DIR = Path("/run/Account-Tree")
 PLUGGED_DIR = RUN_DIR / "plugged"
 LOCK_PATH = RUN_DIR / "lock"
 MAPPER_PREFIX = "AccountTree_"
@@ -351,14 +351,14 @@ def register(tree_dir ,name ,log ,preview):
   import system_configuration
   system_configuration.rule_write(system_db ,log ,preview)
 
-  # the storage is open now under another name, or under no AccountTree record
+  # the storage is open now under another name, or under no Account-Tree record
   plugged = plugged_read(name)
   if plugged is None:
     plugged_record = {"storage_name": name ,"luks_uuid": uuid_text ,"partition": str(partition),
                       "mapper": dm_name(mapped) ,"mount_dir": str(root) ,"key": None ,"plugged": database.now()}
     if not preview: plugged_write(plugged_record)
-    log.line("recorded" ,str(plugged_path(name)) ,"unlocked outside AccountTree, so no key is watched;"
-             f" unplug it this time with 'AccountTree_admin storage unplug {name}'")
+    log.line("recorded" ,str(plugged_path(name)) ,"unlocked outside Account-Tree, so no key is watched;"
+             f" unplug it this time with 'Account-Tree_admin storage unplug {name}'")
 
 def unregister(name ,log ,preview):
   system_db = open_system_database(log)
@@ -497,7 +497,7 @@ def key_watch(key ,name ,log ,preview):
   unit = KEY_UNIT_TEMPLATE.format(kernel_name)
   if not preview and not is_device_unit_active(device_unit):
     log.line("warning" ,f"storage {name}" ,f"systemd has no {device_unit}, so pulling the key out will not unplug it;"
-             " run 'AccountTree_admin system configure', which tags keys for systemd")
+             " run 'Account-Tree_admin system configure', which tags keys for systemd")
     return
   if not run_logged(log ,preview ,unit ,["systemctl" ,"start" ,"--no-block" ,unit]): return
   log.line("watching" ,key ,f"{unit}; pulling the key out unplugs {name}")
@@ -581,7 +581,7 @@ def unplug_locked(spec ,log ,preview):
   if r is None:
     # the drive's own service stops after the key's unplug has powered it off;
     # by then its record is gone and its partition cannot be read
-    log.line("skipped" ,str(spec) ,"nothing AccountTree plugged in is on it"); return
+    log.line("skipped" ,str(spec) ,"nothing Account-Tree plugged in is on it"); return
   name = r["storage_name"]
   mount_dir = Path(r["mount_dir"])
   record = plugged_read(name)

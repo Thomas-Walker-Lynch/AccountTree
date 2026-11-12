@@ -1,6 +1,6 @@
 -- schema_system.sql
 --
--- The system database, standard 5.0, at /var/lib/AccountTree/system.sqlite3.
+-- The system database, standard 5.0, at /var/lib/Account-Tree/system.sqlite3.
 -- It is the system's own record, and the authority for which storage accounts
 -- are the same accounts as system accounts on this system. It is kept under
 -- /var, which holds state, not under /etc, which holds configuration: a system
@@ -24,12 +24,12 @@ CREATE TABLE identity (
   created       TEXT NOT NULL
 );
 
--- The AccountTree standards this database follows.
+-- The Account-Tree standards this database follows.
 CREATE TABLE standard (
   version  TEXT PRIMARY KEY
 );
 
--- The range of system uids AccountTree gives the system accounts it makes. One row.
+-- The range of system uids Account-Tree gives the system accounts it makes. One row.
 CREATE TABLE system_uid_range (
   first  INTEGER NOT NULL,
   last   INTEGER NOT NULL
@@ -38,7 +38,7 @@ CREATE TABLE system_uid_range (
 -- The system map: each system account that is the same account as a storage
 -- account. A row is never deleted; when the two stop being the same account it
 -- is retired. A system uid in any row, in use or retired, is never given to a
--- system account AccountTree makes. A system account AccountTree adopted, one
+-- system account Account-Tree makes. A system account Account-Tree adopted, one
 -- that existed before, may be mapped again after its row is retired.
 CREATE TABLE system_map (
   id                   INTEGER PRIMARY KEY,

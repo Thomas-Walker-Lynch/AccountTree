@@ -1,12 +1,12 @@
 # -*- mode: sh; sh-shell: bash; -*-
 # init files are bash script
 
-# Man_In_Grey.init
+# Man-In-Grey.init
 # --------------------------------------------------------------------------------
-# Put Man_In_Grey's promoted library on PYTHONPATH, so the project's code can
+# Put Man-In-Grey's promoted library on PYTHONPATH, so the project's code can
 # import Journal·Interface, Journal and Language.
 #
-# The link Man_In_Grey points at Man_In_Grey's consumer/. Only the composer
+# The link Man-In-Grey points at Man-In-Grey's consumer/. Only the composer
 # side reads PYTHONPATH: the gate starts the guard and the interpreter with
 # /usr/bin/python3 -E, which ignores it.
 #
@@ -15,15 +15,15 @@
 # therefore for the file, not an import. The library imports cbor2, which the
 # project's Python needs: python3 -m pip install cbor2
 
-Man_In_Grey_dp="$REPO_HOME/shared/project-dependency/Man_In_Grey/Man_In_Grey"
-if [[ ! -f "$Man_In_Grey_dp/Journal·Interface.py" ]]; then
+Man_In_Grey__dp="$REPO_HOME/shared/project-dependency/Man-In-Grey/Man_In_Grey"
+if [[ ! -f "$Man_In_Grey__dp/Journal·Interface.py" ]]; then
   if [[ "$ROLE" == "administrator" ]]; then
-    echo "Man_In_Grey.init: no $Man_In_Grey_dp/Journal·Interface.py; promote Man_In_Grey, or link its consumer/ here"
+    echo "Man-In-Grey.init: no $Man_In_Grey__dp/Journal·Interface.py; promote Man-In-Grey, or link its consumer/ here"
   fi
 else
   case ":${PYTHONPATH:-}:" in
-    *":$Man_In_Grey_dp:"*) ;;
-    *) export PYTHONPATH="$Man_In_Grey_dp${PYTHONPATH:+:$PYTHONPATH}" ;;
+    *":$Man_In_Grey__dp:"*) ;;
+    *) export PYTHONPATH="$Man_In_Grey__dp${PYTHONPATH:+:$PYTHONPATH}" ;;
   esac
 fi
-unset Man_In_Grey_dp
+unset Man_In_Grey__dp

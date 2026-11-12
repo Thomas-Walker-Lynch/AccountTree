@@ -2,8 +2,8 @@
 """
 system - the work functions for the system database
 
-The system database, /var/lib/AccountTree/system.sqlite3, is this system's own
-record: its system uuid, the range of system uids AccountTree gives out, the
+The system database, /var/lib/Account-Tree/system.sqlite3, is this system's own
+record: its system uuid, the range of system uids Account-Tree gives out, the
 system map of system accounts that are the same accounts as storage accounts,
 every head of each storage database it has seen, and the limits on how many
 child accounts each system account may have.
@@ -82,7 +82,7 @@ def system_show():
   if device_row:
     print("removable storage")
     for r in device_row:
-      plugged = Path(f"/run/AccountTree/plugged/{r['storage_name']}.json").exists()
+      plugged = Path(f"/run/Account-Tree/plugged/{r['storage_name']}.json").exists()
       print(f"  {r['storage_name']:<26}LUKS uuid {r['luks_uuid']}  database {r['database_uuid'][:8]}"
             f"  at {r['mount_dir']}" + ("  (plugged in)" if plugged else ""))
   limit_row = db.rows("SELECT * FROM account_limit ORDER BY system_uid")

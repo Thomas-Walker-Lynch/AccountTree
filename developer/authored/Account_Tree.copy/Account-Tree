@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-AccountTree
+Account-Tree
 
 The program a person uses to manage the child accounts and other resources
-of his login account. AccountTree keeps light containers made of Linux
+of his login account. Account-Tree keeps light containers made of Linux
 accounts: below a login account are its child accounts, each a separate
 account with its own files and processes, entered through its parent rather
 than through the system's login programs.
@@ -13,7 +13,7 @@ This is the application shell. It shows what exists and greys out every
 option that has no implementation yet. It changes nothing, and runs with
 the privileges of the account that started it.
 
-Usage: AccountTree <command> [argument ...]
+Usage: Account-Tree <command> [argument ...]
   help | -h | --help   print this message (also printed when given no arguments)
   window [<account>]   open the resource window for <account>, default your own
   list [<account>]     print the child accounts of <account>, default your own

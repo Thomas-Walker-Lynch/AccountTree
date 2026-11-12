@@ -11,7 +11,7 @@ knows, /var/lib/AccountsService/users/<name>, in the key file format:
   SystemAccount=true
 
 An account whose file says SystemAccount=true is left off the list; it can
-still be logged into by typing its name. AccountTree sets the key and leaves
+still be logged into by typing its name. Account-Tree sets the key and leaves
 every other key in the file as it was.
 
   is_hidden_set(name ,hidden)   set SystemAccount for one account

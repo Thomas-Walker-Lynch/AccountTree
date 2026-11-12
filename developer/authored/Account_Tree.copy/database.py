@@ -1,11 +1,11 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-database - the two kinds of AccountTree database
+database - the two kinds of Account-Tree database
 
   storage database   <tree dir>/database.sqlite3, identified by its database uuid.
-                     The tree dir is <storage root>/home/AccountTree, so on the
-                     disk a system runs from it is /home/AccountTree.
-  system database    /var/lib/AccountTree/system.sqlite3, identified by its system uuid
+                     The tree dir is <storage root>/home/Account-Tree, so on the
+                     disk a system runs from it is /home/Account-Tree.
+  system database    /var/lib/Account-Tree/system.sqlite3, identified by its system uuid
 
 Each kind has its own schema, schema_storage.sql and schema_system.sql, and
 both share the machinery here. Every change is made inside a transaction (see
@@ -62,7 +62,7 @@ def schema_added_text(kind) -> str:
   body = tail if end == -1 else tail[:end]
   return "\n".join(line for line in body.splitlines() if not line.startswith("--"))
 
-SYSTEM_DIR = Path("/var/lib/AccountTree")
+SYSTEM_DIR = Path("/var/lib/Account-Tree")
 SYSTEM_DATABASE_PATH = SYSTEM_DIR / "system.sqlite3"
 
 

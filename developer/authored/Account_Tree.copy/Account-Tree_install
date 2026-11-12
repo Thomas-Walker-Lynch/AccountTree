@@ -1,31 +1,31 @@
 #!/usr/bin/env bash
 # -*- mode: sh; indent-tabs-mode: nil; sh-basic-offset: 2 -*-
 #
-# AccountTree_install
+# Account-Tree_install
 #
-# Install AccountTree from the directory this script is in, the project's
-# consumer/AccountTree, into /usr/local/lib/AccountTree, where only root can
-# change it. The systemd units run AccountTree_admin under root, so the copy
+# Install Account-Tree from the directory this script is in, the project's
+# consumer/Account_Tree, into /usr/local/lib/Account-Tree, where only root can
+# change it. The systemd units run Account-Tree_admin under root, so the copy
 # they run must be one that no other account can change.
 #
 # The install directory is made to hold exactly the files of the consumer
 # directory: new and changed files are copied, owned by root, and files the
 # consumer directory no longer has are deleted. Python's __pycache__ is left
 # out. Then system configure writes the units and the udev rule, so that they
-# name the installed AccountTree_admin.
+# name the installed Account-Tree_admin.
 #
 # Run it under root. Whoever installs code that root runs can act as root, so
 # installing is root's own work.
 
-INSTALL_DIR=/usr/local/lib/AccountTree
+INSTALL_DIR=/usr/local/lib/Account-Tree
 
 usage(){
   cat <<EOF
-Usage: AccountTree_install <command>
-       AccountTree_install preview <command>
+Usage: Account-Tree_install <command>
+       Account-Tree_install preview <command>
   help | -h | --help    print this message (also printed when given no arguments)
   run                   install from $(source_dir) into $INSTALL_DIR,
-                        then run AccountTree_admin system configure
+                        then run Account-Tree_admin system configure
   preview run           print what run would do, change nothing
 EOF
 }
@@ -94,35 +94,35 @@ CLI(){
   local preview=no
   if [ "$1" = preview ]; then preview=yes; shift; fi
   if [ "$1" != run ] || [ $# -ne 1 ]; then
-    echo "Error: unknown command '$*'; run 'AccountTree_install help' for the commands." >&2
+    echo "Error: unknown command '$*'; run 'Account-Tree_install help' for the commands." >&2
     return 1
   fi
   if [ "$(id -u)" -ne 0 ]; then
-    echo "Error: AccountTree_install installs code that root runs, and must be run under root." >&2
+    echo "Error: Account-Tree_install installs code that root runs, and must be run under root." >&2
     return 1
   fi
 
   local source
   source=$(source_dir) || return 1
-  if [ ! -f "$source/AccountTree_admin" ]; then
-    echo "Error: $source holds no AccountTree_admin; run this script from the consumer directory it was promoted to." >&2
+  if [ ! -f "$source/Account-Tree_admin" ]; then
+    echo "Error: $source holds no Account-Tree_admin; run this script from the consumer directory it was promoted to." >&2
     return 1
   fi
   if [ "$source" = "$INSTALL_DIR" ]; then
-    echo "Error: this is the installed copy; run the AccountTree_install in the project's consumer directory." >&2
+    echo "Error: this is the installed copy; run the Account-Tree_install in the project's consumer directory." >&2
     return 1
   fi
 
   local word=""
   [ "$preview" = yes ] && word="preview "
-  echo "AccountTree_install ${word}run   from $source to $INSTALL_DIR"
+  echo "Account-Tree_install ${word}run   from $source to $INSTALL_DIR"
   install_tree "$preview" "$source" || return 1
 
   if [ "$preview" = yes ]; then
-    "$INSTALL_DIR/AccountTree_admin" preview system configure 2>/dev/null \
-      || echo "  would run        $INSTALL_DIR/AccountTree_admin system configure"
+    "$INSTALL_DIR/Account-Tree_admin" preview system configure 2>/dev/null \
+      || echo "  would run        $INSTALL_DIR/Account-Tree_admin system configure"
   else
-    "$INSTALL_DIR/AccountTree_admin" system configure
+    "$INSTALL_DIR/Account-Tree_admin" system configure
   fi
 }
 

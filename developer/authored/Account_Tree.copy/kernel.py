@@ -1,7 +1,7 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
 kernel - direct calls to the Linux kernel and to libsystemd, made through
-ctypes, for the work that AccountTree does on mounts, files and sessions.
+ctypes, for the work that Account-Tree does on mounts, files and sessions.
 
   home_mount            mount an account's home: a bind mount, idmapped when the
                         database uid and system uid differ, nosuid and nodev

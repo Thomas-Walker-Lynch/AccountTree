@@ -1,1 +1,0 @@
-../../../shared/project-dependency/Man_In_Grey/Man_In_Grey_gate/Man_In_Grey_gate.mk

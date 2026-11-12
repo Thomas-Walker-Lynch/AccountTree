@@ -4,9 +4,9 @@ storage - the work functions for storage databases
 
 A storage is a persistent storage device that keeps accounts' data: the disk
 inside the machine, or a drive plugged in. Its tree dir is
-<storage root>/home/AccountTree, which holds the storage database and
+<storage root>/home/Account-Tree, which holds the storage database and
 account_data, the storage accounts' homes. On the disk a system runs from, the
-tree dir is /home/AccountTree.
+tree dir is /home/Account-Tree.
 
 Which storage accounts are the same accounts as system accounts here is
 recorded in the system map of the system database, and attach mounts exactly
@@ -105,7 +105,7 @@ def storage_show(tree_dir):
 
 def storage_delete(tree_dir ,delete_account_data ,forget_other_systems ,log ,preview):
   """
-  Undo on this system what AccountTree did for the storage database in
+  Undo on this system what Account-Tree did for the storage database in
   tree_dir, then delete the tree dir. Every check is made before anything is
   changed; a check that fails stops the command with nothing changed.
   """
@@ -139,7 +139,7 @@ def storage_delete(tree_dir ,delete_account_data ,forget_other_systems ,log ,pre
       problem.append(f"{target} is a mount point inside {tree_dir}")
   for entry in sorted(tree_dir.iterdir()):
     if entry.name != "account_data" and not entry.name.startswith("database.sqlite3"):
-      problem.append(f"{entry} is not AccountTree's")
+      problem.append(f"{entry} is not Account-Tree's")
   holding_file = []
   if account_data.is_dir():
     for entry in sorted(account_data.iterdir()):
@@ -391,7 +391,7 @@ def attach_account(tree_dir ,db ,m ,log ,preview):
     log.error(m["system_account_name"] ,f"no system account {m['system_account_name']} with system uid {m['system_uid']};"
               " it is to be made again"); return
   if entry.pw_dir != str(target):
-    log.error(m["system_account_name"] ,f"its home is {entry.pw_dir}; AccountTree mounts a home only at {target}"); return
+    log.error(m["system_account_name"] ,f"its home is {entry.pw_dir}; Account-Tree mounts a home only at {target}"); return
   source = database.account_data_dir(tree_dir) / a["name"]
   if not source.is_dir():
     log.error(str(source) ,"no such directory"); return

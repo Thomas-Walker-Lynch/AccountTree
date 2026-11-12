@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-common - what the work modules of AccountTree_admin share: the log, carrying
+common - what the work modules of Account-Tree_admin share: the log, carrying
 out a change, and checking names and paths.
 
 Each work function is given a log and a preview flag. Everything a function
@@ -22,7 +22,7 @@ SEPARATOR = "·"
 # a system account made for a branch of a storage database is named
 # <name><BRANCH_MARK><eight hex digits>
 BRANCH_MARK = "~"
-TREE_DIR_NAME = "AccountTree"
+TREE_DIR_NAME = "Account-Tree"
 RESERVED_NAME = {TREE_DIR_NAME}
 
 
@@ -98,13 +98,13 @@ def valid_name(name):
   if SEPARATOR * 2 in name:
     return "an account name may not contain an empty part between two '·'"
   if name in RESERVED_NAME:
-    return f"'{name}' is reserved: /home/{name} holds AccountTree's own files"
+    return f"'{name}' is reserved: /home/{name} holds Account-Tree's own files"
   return None
 
 def tree_dir_problem(tree_dir):
   """
   Why tree_dir is not a tree dir, or None. A tree dir is
-  <storage root>/home/AccountTree; every storage keeps the same layout.
+  <storage root>/home/Account-Tree; every storage keeps the same layout.
   """
   path = Path(tree_dir)
   if path.name != TREE_DIR_NAME or path.parent.name != "home":

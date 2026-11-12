@@ -125,7 +125,7 @@ def same_account_map(system_db ,storage_db ,system_account_name ,storage_account
     if taken:
       log.error(system_account_name ,f"already the same account as database uid {taken['database_uid']} of database {taken['database_uuid'][:8]}"); return False
     if entry.pw_dir != str(HOME / system_account_name):
-      log.error(system_account_name ,f"its home is {entry.pw_dir}; AccountTree mounts a home only at /home/<system account>"); return False
+      log.error(system_account_name ,f"its home is {entry.pw_dir}; Account-Tree mounts a home only at /home/<system account>"); return False
     system_uid ,system_gid ,origin = entry.pw_uid ,entry.pw_gid ,"adopted"
     log.line("adopted" ,system_account_name ,f"existing system account, system uid {system_uid}")
   else:
@@ -195,7 +195,7 @@ def same_account_end(row ,system_db ,tree_dir ,storage_account_name ,log ,previe
   """
   Undo one row of the system map: unmount the home if it is mounted from this
   storage, delete the mount point attach made, delete the system account if
-  AccountTree made it, and retire the row. Returns False when it had to stop.
+  Account-Tree made it, and retire the row. Returns False when it had to stop.
   """
   name = row["system_account_name"]
   target ,entry = mount_target(row)
@@ -215,7 +215,7 @@ def same_account_end(row ,system_db ,tree_dir ,storage_account_name ,log ,previe
         if not act(log ,preview ,name ,sa.system_group_delete ,name): return False
       log.line("deleted system group" ,name ,f"gid {row['system_gid']}")
   elif row["origin"] == "adopted":
-    log.line("kept" ,f"system account {name}" ,"it existed before AccountTree adopted it")
+    log.line("kept" ,f"system account {name}" ,"it existed before Account-Tree adopted it")
   with system_db.transaction(f"{name} is no longer the same account as database uid {row['database_uid']}"
                              f" of database {row['database_uuid'][:8]}" ,preview) as t:
     t.execute("UPDATE system_map SET state = 'retired' ,retired = ? WHERE id = ?" ,(database.now() ,row["id"]))
@@ -273,7 +273,7 @@ def same_account_suggest(storage_spec):
   for a in storage_db.rows("SELECT * FROM account WHERE state = 'active' ORDER BY name"):
     if a["database_uid"] in mapped: continue
     entry = sa.system_account(a["name"])
-    line = f"AccountTree_admin is-same-account system {host_name()} '{a['name']}' storage {tree_dir} '{a['name']}'"
+    line = f"Account-Tree_admin is-same-account system {host_name()} '{a['name']}' storage {tree_dir} '{a['name']}'"
     if entry is None:
       print(line + " make-system-account")
     elif entry.pw_uid in taken or entry.pw_uid < sa.system_uid_min():

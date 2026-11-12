@@ -5,7 +5,7 @@ account_tree - the system accounts as a tree, read from their names
 root is at the top of the tree, and a login account is a child of root. Every
 account is entered through its parent: root enters a login account through
 the system's login programs, and a login account enters its child accounts,
-and they theirs, through the AccountTree server. An account's name is its parent's name,
+and they theirs, through the Account-Tree server. An account's name is its parent's name,
 the separator, and its own short name: Thomas·developer·scratch is a child of
 Thomas·developer, a child of the login account Thomas, a child of root.
 

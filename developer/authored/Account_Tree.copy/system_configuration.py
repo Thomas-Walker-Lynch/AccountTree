@@ -1,18 +1,18 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-system_configuration - the systemd units and udev rules AccountTree places
+system_configuration - the systemd units and udev rules Account-Tree places
 
   configure(log ,preview)          write the units and the rules, then have
                                    systemd and udev read them again
   rule_write(system_db ,log ,preview)
                                    write the rules from the registered storage
 
-Each file begins with MARK. A file AccountTree writes is replaced only when it
+Each file begins with MARK. A file Account-Tree writes is replaced only when it
 carries the mark; a file of the same name without it belongs to someone else,
 and is reported and left alone. This is the rule the installer is to follow
 for all system configuration.
 
-How a plug reaches AccountTree. udev runs the rules when a device appears.
+How a plug reaches Account-Tree. udev runs the rules when a device appears.
 
   A FIDO2 key, a hidraw device that systemd's 60-fido-id.rules marks
   ID_SECURITY_TOKEN=1, is tagged for systemd, so that systemd makes a device
@@ -52,9 +52,9 @@ TRUE_PATH = "/usr/bin/true"
 
 def admin_path():
   """
-  The AccountTree_admin the units are to run: the one running now.
+  The Account-Tree_admin the units are to run: the one running now.
   """
-  return Path(os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)) ,"AccountTree_admin")))
+  return Path(os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)) ,"Account-Tree_admin")))
 
 def path_changer(path):
   """
@@ -81,7 +81,7 @@ def unit_text():
   return {
     "AccountTree-plug@.service": f"""{MARK}
 [Unit]
-Description=AccountTree storage on /dev/%i
+Description=Account-Tree storage on /dev/%i
 BindsTo=dev-%i.device
 After=dev-%i.device
 
@@ -95,7 +95,7 @@ ExecStop={admin} storage unplug /dev/%i
 """,
     "AccountTree-key@.service": f"""{MARK}
 [Unit]
-Description=AccountTree key on /dev/%i
+Description=Account-Tree key on /dev/%i
 BindsTo=dev-%i.device
 After=dev-%i.device
 
@@ -107,7 +107,7 @@ ExecStop={admin} storage unplug key /dev/%i
 """,
     "AccountTree-key-arrive.service": f"""{MARK}
 [Unit]
-Description=AccountTree plug of storage waiting for a key
+Description=Account-Tree plug of storage waiting for a key
 
 [Service]
 Type=oneshot
@@ -142,7 +142,7 @@ def file_write(path ,text ,log ,preview):
     except OSError as error:
       log.error(str(path) ,str(error)); return False
     if not old.startswith(MARK):
-      log.error(str(path) ,"exists and was not made by AccountTree; it is left as it is"); return False
+      log.error(str(path) ,"exists and was not made by Account-Tree; it is left as it is"); return False
     if old == text:
       log.line("kept" ,str(path) ,"unchanged"); return True
   def write():
@@ -169,7 +169,7 @@ def configure(log ,preview):
   admin = admin_path()
   problem = path_changer(admin)
   if problem:
-    log.line("warning" ,str(admin) ,f"the units run this program under root, but {problem}; until AccountTree is"
+    log.line("warning" ,str(admin) ,f"the units run this program under root, but {problem}; until Account-Tree is"
              " installed where only root can change it, whoever can change it can act as root")
   if not UNIT_DIR.is_dir():
     log.error(str(UNIT_DIR) ,"no such directory; is this system run by systemd?"); return

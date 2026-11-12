@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-window - the AccountTree resource window
+window - the Account-Tree resource window
 
 One window shows the resources of one account, the window account, and acts
 with the authority of another, the acting account: the account of the person
@@ -21,7 +21,7 @@ import authority
 import resource_kind
 
 GTK_MISSING = """\
-AccountTree window: GTK 4 for Python is not available to {python}
+Account-Tree window: GTK 4 for Python is not available to {python}
   {error}
 This Python needs the PyGObject package and the GTK 4 introspection data.
   System Python, openSUSE:  zypper install python313-gobject typelib-1_0-Gtk-4_0   (313 for Python 3.13)
@@ -146,7 +146,7 @@ def build_window_class(Gtk ,GLib):
       self.window_account = window_account
       self.acting_account = acting_account
       title = resource_kind.GROUP_TITLE[group]
-      self.set_title(f"AccountTree: {window_account.name}: allocate {title}")
+      self.set_title(f"Account-Tree: {window_account.name}: allocate {title}")
 
       box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL ,spacing=PAD,
         margin_top=PAD ,margin_bottom=PAD ,margin_start=PAD ,margin_end=PAD)
@@ -182,7 +182,7 @@ def build_window_class(Gtk ,GLib):
       super().__init__(application=application)
       self.window_account = window_account
       self.acting_account = acting_account
-      self.set_title(f"AccountTree: {window_account.name}")
+      self.set_title(f"Account-Tree: {window_account.name}")
 
       grid = Gtk.Grid(column_spacing=PAD ,row_spacing=PAD,
         margin_top=PAD ,margin_bottom=PAD ,margin_start=PAD ,margin_end=PAD)

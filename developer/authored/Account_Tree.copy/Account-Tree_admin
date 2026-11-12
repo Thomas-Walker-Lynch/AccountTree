@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-AccountTree_admin
+Account-Tree_admin
 
 The administrator's program. It runs under root, and calls the work functions
-directly, so it works whether or not the AccountTree server is running. A
+directly, so it works whether or not the Account-Tree server is running. A
 person manages the child accounts of his own login account with the
-AccountTree program.
+Account-Tree program.
 
-AccountTree keeps light containers made of Linux accounts. The accounts form
+Account-Tree keeps light containers made of Linux accounts. The accounts form
 a tree: root at the top, a login account for each person who logs in, and
 below a login account its child accounts, which are entered from their parent
 rather than through the system's login programs.
 
 There are two kinds of database:
-  system database    /var/lib/AccountTree/system.sqlite3, this system's own
+  system database    /var/lib/Account-Tree/system.sqlite3, this system's own
                      record, identified by its system uuid. Its system map is
                      the authority for which storage accounts are the same
                      accounts as system accounts here.
@@ -22,10 +22,10 @@ There are two kinds of database:
                      a storage, identified by its database uuid.
 
 A storage is a persistent storage device: the disk inside the machine, or a
-drive plugged in. Its tree dir is <storage root>/home/AccountTree and holds the
+drive plugged in. Its tree dir is <storage root>/home/Account-Tree and holds the
 storage database and account_data, the storage accounts' homes. On the disk
-the system runs from, the tree dir is /home/AccountTree; on a drive mounted at
-/mnt/Eagle it is /mnt/Eagle/home/AccountTree.
+the system runs from, the tree dir is /home/Account-Tree; on a drive mounted at
+/mnt/Eagle it is /mnt/Eagle/home/Account-Tree.
 
 An account specifier names an account in one place:
   system <host name> <system account>     a system account on this system
@@ -35,18 +35,18 @@ An account specifier names an account in one place:
 Keywords, such as make-system-account, are words given after a command's
 other arguments, in any order, as the command itself is a word.
 
-Usage: AccountTree_admin <command> [argument ...]
-       AccountTree_admin preview <command> [argument ...]
+Usage: Account-Tree_admin <command> [argument ...]
+       Account-Tree_admin preview <command> [argument ...]
   help | -h | --help             print this message (also printed when given no arguments)
 
   system make [<first system uid> <last system uid>]
                                  make the system database, with a new system uuid and
-                                 the range of system uids AccountTree gives out
+                                 the range of system uids Account-Tree gives out
                                  (default 2000 to 59999)
   system show                    print the system database, and verify it
   system configure               write the systemd units and udev rules that plug and
                                  unplug removable storage, and reload systemd and udev.
-                                 A file of the same name that AccountTree did not make
+                                 A file of the same name that Account-Tree did not make
                                  is reported and left alone
   system delete                  delete the system database; refused while any system
                                  account is the same account as a storage account
@@ -55,11 +55,11 @@ Usage: AccountTree_admin <command> [argument ...]
                                  account_data
   storage show <tree dir>        print the storage database, and verify it
   storage delete <tree dir> [delete-account-data] [forget-other-systems]
-                                 undo on this system what AccountTree did for the
+                                 undo on this system what Account-Tree did for the
                                  storage database's accounts, then delete the tree
                                  dir. Every check is made first, and a failed check
                                  changes nothing. It deletes the system accounts
-                                 AccountTree made and keeps adopted ones. Homes
+                                 Account-Tree made and keeps adopted ones. Homes
                                  holding files are deleted only with
                                  delete-account-data
 
@@ -106,7 +106,7 @@ Usage: AccountTree_admin <command> [argument ...]
                                  makes it, with a new system uid, when it does not
   is-not-same-account <account specifier> <account specifier>
                                  undo is-same-account: unmount the home, delete a
-                                 system account AccountTree made, keep an adopted one,
+                                 system account Account-Tree made, keep an adopted one,
                                  retire the system uid
   same-account show [storage <tree dir>]
                                  print which accounts are the same account here
@@ -238,7 +238,7 @@ def CLI(argv=None):
     command ,rest = f"{command} {rest[0]}" ,rest[1:]
 
   if command not in READ_ONLY and os.geteuid() != 0 and not preview:
-    print("Error: AccountTree_admin changes the system and must be run under root." ,file=sys.stderr)
+    print("Error: Account-Tree_admin changes the system and must be run under root." ,file=sys.stderr)
     return 1
 
   log = common.Log(preview)
@@ -328,11 +328,11 @@ def CLI(argv=None):
 
 def header(command ,tree_dir ,preview):
   where = f"   on {os.path.abspath(tree_dir)}" if tree_dir else ""
-  print(f"AccountTree_admin {'preview ' if preview else ''}{command}{where}")
+  print(f"Account-Tree_admin {'preview ' if preview else ''}{command}{where}")
 
 def usage_error(command):
   print(f"Error: unknown command or wrong arguments: '{command}'." ,file=sys.stderr)
-  print("Run 'AccountTree_admin help' for the commands." ,file=sys.stderr)
+  print("Run 'Account-Tree_admin help' for the commands." ,file=sys.stderr)
   return 1
 
 

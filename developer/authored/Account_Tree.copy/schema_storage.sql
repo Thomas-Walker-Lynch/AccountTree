@@ -1,7 +1,7 @@
 -- schema_storage.sql
 --
 -- The storage database, standard 5.0, at <tree dir>/database.sqlite3, where the
--- tree dir is <storage root>/home/AccountTree. It records the storage accounts
+-- tree dir is <storage root>/home/Account-Tree. It records the storage accounts
 -- kept on the storage. It grants nothing on any system: which storage accounts
 -- are the same accounts as system accounts on a system is recorded by that
 -- system, in its system database.
@@ -31,7 +31,7 @@ CREATE TABLE identity (
   created              TEXT NOT NULL
 );
 
--- The AccountTree standards this database follows.
+-- The Account-Tree standards this database follows.
 CREATE TABLE standard (
   version  TEXT PRIMARY KEY
 );

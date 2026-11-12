@@ -29,6 +29,6 @@ __pycache__/
 *.swp
 .DS_Store
 
-# AccountTree
+# Account-Tree
 __pycache__
 *.sqlite3
