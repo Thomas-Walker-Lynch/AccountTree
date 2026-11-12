@@ -9,6 +9,7 @@ change is made: a database transaction is rolled back, and a change to the
 system is logged and not carried out.
 """
 
+import os
 import socket
 from pathlib import Path
 
@@ -22,8 +23,12 @@ SEPARATOR = "·"
 # a system account made for a branch of a storage database is named
 # <name><BRANCH_MARK><eight hex digits>
 BRANCH_MARK = "~"
-DIRN__TREE = "Account-Tree"
-RESERVED_NAME = {DIRN__TREE}
+DIRN__ACCOUNT_TREE = "Account-Tree"
+# Where Account-Tree keeps its files on a storage, below the storage's root. This
+# is the one place the layout is written; everything else asks
+# dirpa__Account_Tree for it.
+DIRR__ACCOUNT_TREE = Path("home") / DIRN__ACCOUNT_TREE
+RESERVED_NAME = {DIRN__ACCOUNT_TREE}
 
 
 class Log:
@@ -38,6 +43,7 @@ class Log:
     "retired": "would retire" ,"mapped": "would map" ,"branched": "would branch",
     "unlocked": "would unlock" ,"locked": "would lock" ,"powered off": "would power off",
     "ended": "would end" ,"watching": "would watch" ,"written": "would write" ,"reloaded": "would reload",
+    "frozen": "would freeze" ,"thawed": "would thaw",
   }
 
   def __init__(self ,preview):
@@ -101,14 +107,32 @@ def valid_name(name):
     return f"'{name}' is reserved: /home/{name} holds Account-Tree's own files"
   return None
 
-def dirp__tree__problem(dirp__tree):
+def dirpa__Account_Tree(dirp__storage):
   """
-  Why dirp__tree is not a tree dir, or None. A tree dir is
-  <storage root>/home/Account-Tree; every storage keeps the same layout.
+  The Account-Tree directory of the storage whose root is dirp__storage: the
+  directory holding its storage database and account-data.
   """
-  dirp__candidate = Path(dirp__tree)
-  if dirp__candidate.name != DIRN__TREE or dirp__candidate.parent.name != "home":
-    return f"{dirp__tree} is not a tree dir; a tree dir is <storage root>/home/{DIRN__TREE}, such as /home/{DIRN__TREE}"
+  return Path(os.path.abspath(dirp__storage)) / DIRR__ACCOUNT_TREE
+
+def dirpa__storage(dirp__Account_Tree):
+  """The root of the storage whose Account-Tree directory is dirp__Account_Tree."""
+  dirpa__each = Path(os.path.abspath(dirp__Account_Tree))
+  for _ in DIRR__ACCOUNT_TREE.parts:
+    dirpa__each = dirpa__each.parent
+  return dirpa__each
+
+def is__Account_Tree_directory(dirp):
+  return Path(os.path.abspath(dirp)).parts[-len(DIRR__ACCOUNT_TREE.parts):] == DIRR__ACCOUNT_TREE.parts
+
+def dirp__storage__problem(dirp__storage):
+  """
+  Why dirp__storage is not the root of a storage, or None. The root is the
+  directory the storage is mounted at: / for the disk the system runs from.
+  """
+  if is__Account_Tree_directory(dirp__storage):
+    return f"{dirp__storage} is the Account-Tree directory; give the storage's root, {dirpa__storage(dirp__storage)}"
+  if not Path(dirp__storage).is_dir():
+    return f"{dirp__storage} is not a directory; give a storage's root, such as / or /mnt/Hummingbird"
   return None
 
 def delete_mount_point(dirp__mount_point ,log ,preview):

@@ -13,64 +13,96 @@ a tree: root at the top, a login account for each person who logs in, and
 below a login account its child accounts, which are entered from their parent
 rather than through the system's login programs.
 
-There are two kinds of database:
-  system database    /var/lib/Account-Tree/system.sqlite3, this system's own
-                     record, identified by its system uuid. Its system map is
-                     the authority for which storage accounts are the same
-                     accounts as system accounts here.
-  storage database   <tree dir>/database.sqlite3, the storage accounts kept on
-                     a storage, identified by its database uuid.
+A storage is a persistent storage device: the disk the system runs from, or a
+drive plugged in. Account-Tree keeps its files on a storage in one directory,
+home/Account-Tree below the storage's root, which holds:
+  database.sqlite3   the storage database: the storage accounts kept on this
+                     storage, identified by its database uuid
+  account-data       the storage accounts' homes, one directory each, side by
+                     side; the '·' in an account's name places it in the tree
 
-A storage is a persistent storage device: the disk inside the machine, or a
-drive plugged in. Its tree dir is <storage root>/home/Account-Tree and holds the
-storage database and account-data, the storage accounts' homes. On the disk
-the system runs from, the tree dir is /home/Account-Tree; on a drive mounted at
-/mnt/Eagle it is /mnt/Eagle/home/Account-Tree.
+The system database, /var/lib/Account-Tree/system.sqlite3, is this system's own
+record, identified by its system uuid. Its system map is the authority for which
+storage accounts are the same accounts as system accounts here.
 
-An account specifier names an account in one place:
-  system <host name> <system account>     a system account on this system
-  storage <tree dir> <storage account>    a storage account of the storage
-                                          database in that tree dir
+Usage: Account-Tree_admin <command> [argument ...]
+       Account-Tree_admin preview <command> [argument ...]
+
+Arguments:
+  <dirp_storage>         the root of a storage, the directory it is mounted at:
+                           /                  the disk the system runs from
+                           /mnt/Hummingbird   a drive mounted at /mnt/Hummingbird
+                         (dirp is short for directory path.)
+  <name>                 a storage account's name, such as Thomas·Work; the
+                         part before the last '·' names its parent
+  <database uid>         a storage account's uid in the storage database
+  <system account>       an account name in /etc/passwd on this system
+  <storage account>      a storage account's name in a storage database
+  <host name>            this system's host name, as hostname prints it
+  <account specifier>    names an account in one place, as one of:
+                           system <host name> <system account>
+                           storage <dirp_storage> <storage account>
+  <maximum>              a count of child accounts
+  <device>               a block device, such as /dev/sdb
+  <storage name>         the name a removable storage was registered under
+  <key device>           a FIDO2 key's device, /dev/hidrawN
+  <first system uid> <last system uid>
+                         the range of system uids Account-Tree gives out
 
 Keywords, such as make-system-account, are words given after a command's
 other arguments, in any order, as the command itself is a word.
 
-Usage: Account-Tree_admin <command> [argument ...]
-       Account-Tree_admin preview <command> [argument ...]
+Commands:
+  account make <dirp_storage> <name> [uid <database uid>] [parent <name>] [make-system-account]
+                                 make a storage account, with its home in account-data;
+                                 its database uid is the next counting down from
+                                 1999999999, or uid keeps an existing uid. Its parent is
+                                 the account its name begins with, before the last '·'.
+                                 make-system-account also makes a system account of the
+                                 same name on this system, with a new system uid, and
+                                 records in the system map that the two are the same
+                                 account, so that attach mounts its home. Without it, the
+                                 storage account is used on no system until
+                                 is-same-account names a system account for it
+  attach <dirp_storage> [branch]
+                                 mount the home of each storage account the system map
+                                 names at /home/<system account>, nosuid and nodev. A
+                                 storage that went back to an older copy, or sideways
+                                 to a branch, is attached with a warning. branch first
+                                 makes the storage a branch of its own, with system
+                                 accounts named <system account>~<8 hex digits>, so it
+                                 and the line it came from can both be attached
+  detach <dirp_storage>          unmount the homes attach mounted; refused for a
+                                 system account with a login session
   help | -h | --help             print this message (also printed when given no arguments)
-
-  system make [<first system uid> <last system uid>]
-                                 make the system database, with a new system uuid and
-                                 the range of system uids Account-Tree gives out
-                                 (default 2000 to 59999)
-  system show                    print the system database, and verify it
-  system configure               write the systemd units and udev rules that plug and
-                                 unplug removable storage, and reload systemd and udev.
-                                 A file of the same name that Account-Tree did not make
-                                 is reported and left alone
-  system delete                  delete the system database; refused while any system
-                                 account is the same account as a storage account
-
-  storage make <tree dir>        make the tree dir with an empty storage database and
-                                 account-data
-  storage show <tree dir>        print the storage database, and verify it
-  storage delete <tree dir> [delete-account-data] [forget-other-systems]
+  is-not-same-account <account specifier> <account specifier>
+                                 undo is-same-account: unmount the home, delete a
+                                 system account Account-Tree made, keep an adopted one,
+                                 retire the system uid
+  is-same-account <account specifier> <account specifier> [make-system-account]
+                                 record in the system map that a system account and a
+                                 storage account are the same account. The system
+                                 account is adopted when it exists; make-system-account
+                                 makes it, with a new system uid, when it does not
+  limit set <system account> <maximum>
+                                 set how many child accounts a system account may have
+                                 below it; one with no limit set may have none
+  preview <command>              print the log of what <command> would do, change nothing
+  same-account show [storage <dirp_storage>]
+                                 print which accounts are the same account here
+  same-account suggest storage <dirp_storage>
+                                 print is-same-account commands proposed by matching
+                                 names, to read and run; changes nothing
+  storage delete <dirp_storage> [delete-account-data] [forget-other-systems]
                                  undo on this system what Account-Tree did for the
-                                 storage database's accounts, then delete the tree
-                                 dir. Every check is made first, and a failed check
-                                 changes nothing. It deletes the system accounts
-                                 Account-Tree made and keeps adopted ones. Homes
-                                 holding files are deleted only with
-                                 delete-account-data
-
-  storage register <tree dir> [name <storage name>]
-                                 record a removable storage, while it is unlocked and
-                                 mounted: its LUKS2 partition, the FIDO2 key enrolled
-                                 in it, its storage database, and where it is mounted.
-                                 The storage name is the mount directory's name unless
-                                 given
-  storage unregister <storage name>
-                                 retire that record
+                                 storage database's accounts, then delete
+                                 home/Account-Tree on the storage. Every check is
+                                 made first, and a failed check changes nothing. It
+                                 deletes the system accounts Account-Tree made and
+                                 keeps adopted ones. Homes holding files are deleted
+                                 only with delete-account-data
+  storage make <dirp_storage>    make home/Account-Tree on the storage, with an empty
+                                 storage database and account-data
   storage plug <device> [passphrase]
                                  unlock a registered storage's partition with the key
                                  plugged in, mount it, attach it, and offer its login
@@ -81,6 +113,13 @@ Usage: Account-Tree_admin <command> [argument ...]
   storage plug all               plug every registered storage plugged in and locked.
                                  Run by Account-Tree_key-arrive.service when a key is
                                  plugged in
+  storage register <dirp_storage> [name <storage name>]
+                                 record a removable storage, while it is unlocked and
+                                 mounted: its LUKS2 partition, the FIDO2 key enrolled
+                                 in it, its storage database, and where it is mounted.
+                                 The storage name is the mount directory's name unless
+                                 given
+  storage show <dirp_storage>    print the storage database, and verify it
   storage unplug <storage name or device>
                                  end every process of its accounts, whoever is at the
                                  console, unmount their homes, hide them from the login
@@ -90,45 +129,19 @@ Usage: Account-Tree_admin <command> [argument ...]
                                  unplug every storage the key at /dev/hidrawN unlocked.
                                  Run by Account-Tree_key@.service when the key is pulled
                                  out
-
-  account make <tree dir> <name> [uid <database uid>] [parent <name>] [make-system-account]
-                                 make a storage account, with its home in account-data;
-                                 its database uid is the next counting down from
-                                 1999999999, or uid keeps an existing uid. Its parent is
-                                 the account its name begins with, before the last '·'.
-                                 make-system-account also makes a system account of the
-                                 same name, the same account as it
-
-  is-same-account <account specifier> <account specifier> [make-system-account]
-                                 record in the system map that a system account and a
-                                 storage account are the same account. The system
-                                 account is adopted when it exists; make-system-account
-                                 makes it, with a new system uid, when it does not
-  is-not-same-account <account specifier> <account specifier>
-                                 undo is-same-account: unmount the home, delete a
-                                 system account Account-Tree made, keep an adopted one,
-                                 retire the system uid
-  same-account show [storage <tree dir>]
-                                 print which accounts are the same account here
-  same-account suggest storage <tree dir>
-                                 print is-same-account commands proposed by matching
-                                 names, to read and run; changes nothing
-
-  attach <tree dir> [branch]     mount the home of each storage account the system map
-                                 names at /home/<system account>, nosuid and nodev. A
-                                 storage that went back to an older copy, or sideways
-                                 to a branch, is attached with a warning. branch first
-                                 makes the storage a branch of its own, with system
-                                 accounts named <system account>~<8 hex digits>, so it
-                                 and the line it came from can both be attached
-  detach <tree dir>              unmount them; refused for a system account with a
-                                 login session
-
-  limit set <system account> <maximum>
-                                 set how many child accounts a system account may have
-                                 below it; one with no limit set may have none
-
-  preview <command>              print the log of what <command> would do, change nothing
+  storage unregister <storage name>
+                                 retire that record
+  system configure               write the systemd units and udev rules that plug and
+                                 unplug removable storage, and reload systemd and udev.
+                                 A file of the same name that Account-Tree did not make
+                                 is reported and left alone
+  system delete                  delete the system database; refused while any system
+                                 account is the same account as a storage account
+  system make [<first system uid> <last system uid>]
+                                 make the system database, with a new system uuid and
+                                 the range of system uids Account-Tree gives out
+                                 (default 2000 to 59999)
+  system show                    print the system database, and verify it
 
 The order on a new system: system make, storage make, account make, attach. To
 undo: storage delete, then system delete.
@@ -195,7 +208,7 @@ def integer(text ,what):
 def list__account_specifier(rest):
   """
   Parse account specifiers from rest: 'system <host name> <system account>'
-  and 'storage <tree dir> <storage account>'.
+  and 'storage <dirp_storage> <storage account>'.
   """
   result = []
   i = 0
@@ -203,11 +216,11 @@ def list__account_specifier(rest):
     kind = rest[i]
     if kind not in ("system" ,"storage") or i + 2 >= len(rest):
       raise ValueError("an account specifier is 'system <host name> <system account>' or"
-                       f" 'storage <tree dir> <storage account>', not '{' '.join(rest[i:])}'")
+                       f" 'storage <dirp_storage> <storage account>', not '{' '.join(rest[i:])}'")
     if kind == "system":
       result.append({"kind": "system" ,"host": rest[i + 1] ,"account": rest[i + 2]})
     else:
-      result.append({"kind": "storage" ,"dirp__tree": rest[i + 1] ,"account": rest[i + 2]})
+      result.append({"kind": "storage" ,"dirp__storage": rest[i + 1] ,"account": rest[i + 2]})
     i += 3
   return result
 
@@ -250,9 +263,9 @@ def CLI(argv=None):
       return Storage.storage__show(rest[0])
     if command == "same-account show" and len(rest) in (0 ,2):
       if rest and rest[0] != "storage": return usage_error(command)
-      return SameAccount.same_account__show({"dirp__tree": rest[1]} if rest else None)
+      return SameAccount.same_account__show({"dirp__storage": rest[1]} if rest else None)
     if command == "same-account suggest" and len(rest) == 2 and rest[0] == "storage":
-      return SameAccount.same_account__suggest({"dirp__tree": rest[1]})
+      return SameAccount.same_account__suggest({"dirp__storage": rest[1]})
 
     # ---- changes
     if command == "system make" and len(rest) in (0 ,2):
@@ -269,14 +282,14 @@ def CLI(argv=None):
       header(command ,rest[0] ,preview)
       Storage.storage__make(rest[0] ,log ,preview)
     elif command == "storage delete" and rest:
-      (dirp__tree,) ,keyword = split_keyword(rest ,1 ,("delete-account-data" ,"forget-other-systems"))
-      header(command ,dirp__tree ,preview)
-      Storage.storage__delete(dirp__tree ,"delete-account-data" in keyword ,"forget-other-systems" in keyword ,log ,preview)
+      (dirp__storage,) ,keyword = split_keyword(rest ,1 ,("delete-account-data" ,"forget-other-systems"))
+      header(command ,dirp__storage ,preview)
+      Storage.storage__delete(dirp__storage ,"delete-account-data" in keyword ,"forget-other-systems" in keyword ,log ,preview)
     elif command == "account make" and len(rest) >= 2:
-      (dirp__tree ,name) ,keyword = split_keyword(rest ,2 ,("make-system-account",) ,("uid" ,"parent"))
+      (dirp__storage ,name) ,keyword = split_keyword(rest ,2 ,("make-system-account",) ,("uid" ,"parent"))
       database_uid = integer(keyword["uid"] ,"uid") if "uid" in keyword else None
-      header(command ,dirp__tree ,preview)
-      Storage.account__make(dirp__tree ,name ,database_uid ,keyword.get("parent") ,"make-system-account" in keyword ,log ,preview)
+      header(command ,dirp__storage ,preview)
+      Storage.account__make(dirp__storage ,name ,database_uid ,keyword.get("parent") ,"make-system-account" in keyword ,log ,preview)
     elif command == "is-same-account" and rest:
       specifier ,keyword = split_keyword(rest ,6 ,("make-system-account",))
       system_spec ,storage_spec = system_and_storage(list__account_specifier(specifier))
@@ -288,9 +301,9 @@ def CLI(argv=None):
       header(command ,None ,preview)
       SameAccount.is__not_same_account(system_spec ,storage_spec ,log ,preview)
     elif command == "attach" and rest:
-      (dirp__tree,) ,keyword = split_keyword(rest ,1 ,("branch",))
-      header(command ,dirp__tree ,preview)
-      Storage.attach(dirp__tree ,"branch" in keyword ,log ,preview)
+      (dirp__storage,) ,keyword = split_keyword(rest ,1 ,("branch",))
+      header(command ,dirp__storage ,preview)
+      Storage.attach(dirp__storage ,"branch" in keyword ,log ,preview)
     elif command == "detach" and len(rest) == 1:
       header(command ,rest[0] ,preview)
       Storage.detach(rest[0] ,log ,preview)
@@ -298,9 +311,9 @@ def CLI(argv=None):
       header(command ,None ,preview)
       SystemConfiguration.configure(log ,preview)
     elif command == "storage register" and rest:
-      (dirp__tree,) ,keyword = split_keyword(rest ,1 ,() ,("name",))
-      header(command ,dirp__tree ,preview)
-      StoragePlug.register(dirp__tree ,keyword.get("name") ,log ,preview)
+      (dirp__storage,) ,keyword = split_keyword(rest ,1 ,() ,("name",))
+      header(command ,dirp__storage ,preview)
+      StoragePlug.register(dirp__storage ,keyword.get("name") ,log ,preview)
     elif command == "storage unregister" and len(rest) == 1:
       header(command ,None ,preview)
       StoragePlug.unregister(rest[0] ,log ,preview)
@@ -326,8 +339,8 @@ def CLI(argv=None):
     log.error(command ,str(error))
   return log.summary()
 
-def header(command ,dirp__tree ,preview):
-  where = f"   on {os.path.abspath(dirp__tree)}" if dirp__tree else ""
+def header(command ,dirp__storage ,preview):
+  where = f"   on {os.path.abspath(dirp__storage)}" if dirp__storage else ""
   print(f"Account-Tree_admin {'preview ' if preview else ''}{command}{where}")
 
 def usage_error(command):
@@ -337,6 +350,10 @@ def usage_error(command):
 
 
 if __name__ == "__main__":
+  # Under systemd, stdout is a pipe to the journal, which Python fills in
+  # blocks and writes at exit, so every line got the time the run ended.
+  # Line buffering writes each line as it happens, and the journal stamps it then.
+  sys.stdout.reconfigure(line_buffering=True)
   try:
     sys.exit(CLI())
   except BrokenPipeError:

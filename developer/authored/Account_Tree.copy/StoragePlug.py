@@ -2,12 +2,12 @@
 """
 StoragePlug - plugging and unplugging removable storage, opened by a key
 
-A removable storage is a LUKS2 partition holding a file system whose
-<storage root>/home/Account-Tree is a tree dir. Registering it records, in the
+A removable storage is a LUKS2 partition holding a file system with
+Account-Tree's directory, home/Account-Tree. Registering it records, in the
 system database's storage_device table, its LUKS uuid, the storage database it
 carries, its storage name and the directory it is mounted at.
 
-  register(dirp__tree ,name)      record a storage that is unlocked and mounted now
+  register(dirp__storage ,name)  record a storage that is unlocked and mounted now
   unregister(name)              retire the record
   plug(device)                  unlock with a key, mount, attach, offer its
                                 login accounts on the login screen, and watch
@@ -30,6 +30,23 @@ Account-Tree_key@hidrawN.service, which is bound to the key's device unit:
 when the key is pulled out, systemd stops that service, and its ExecStop runs
 unplug_key.
 
+A key that resets looks the same as one pulled out. The OnlyKey drops off the
+bus when it locks itself after a time without use, and rejoins under a new
+USB device number; its hidraw devices come back about eight seconds later.
+So unplug_key first freezes the storage's file system: the kernel writes out
+everything pending and holds every new write, so that the drive is
+consistent, and pulling it is safe, from that moment. It then waits up to
+KEY_RETURN__SECOND for a key of the same identity, its USB port, vendor,
+product and serial, to come back. When one does, the file system is thawed
+and the programs carry on, having paused; Account-Tree_key-arrive.service,
+started by the key's return, then watches the key's new device. When none
+does, or the drive itself goes, the file system is thawed so that its
+programs can be ended, and the unplug goes on as before.
+
+A key's identity is not proof that it is the same key: every OnlyKey reports
+the serial 1000000000. It decides only whether a disappearance was a reset,
+on the same port, within the wait.
+
 Runtime records are kept under /run, which is emptied at each boot, because a
 storage unlocked before a reboot is locked after it.
 
@@ -38,7 +55,7 @@ started by the drive and the plug started by the key, which arrive together
 at boot, take turns.
 """
 
-import os ,re ,json ,time ,fcntl ,signal ,shutil ,subprocess ,sqlite3
+import os ,re ,json ,time ,errno ,fcntl ,signal ,shutil ,subprocess ,sqlite3
 from pathlib import Path
 
 import Database
@@ -46,7 +63,7 @@ from Database import DatabaseError
 import Kernel
 import AccountsService
 from AccountsService import AccountsServiceError
-from Common import SEPARATOR ,DIRN__TREE ,act ,dirp__tree__problem
+from Common import SEPARATOR ,act ,dirp__storage__problem ,dirpa__Account_Tree
 from System import open_system_database
 import SameAccount
 import Storage
@@ -63,6 +80,11 @@ MOUNT_OPTION = "nosuid,nodev"
 SESSION_WAIT__SECOND = 5
 TERM_WAIT__SECOND = 10
 KILL_WAIT__SECOND = 5
+# how long a key that dropped off the bus is waited for, while its storage is frozen
+KEY_RETURN__SECOND = 15
+# the ioctl requests of linux/fs.h that freeze and thaw a file system
+FIFREEZE = 0xC0045877
+FITHAW = 0xC0045878
 
 NAME_CHARACTER = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
 
@@ -223,6 +245,73 @@ def list__key():
       result.append(str(p))
   return result
 
+def key__identity(key):
+  """
+  The identity of the USB device a hidraw device belongs to: its port, such
+  as 1-4, and its vendor, product and serial, read from sysfs. None when the
+  device is gone or is not on USB.
+  """
+  try:
+    dirpa__device = Path(f"/sys/class/hidraw/{os.path.basename(key)}/device").resolve()
+  except OSError:
+    return None
+  for dirpa__each in [dirpa__device] + list(dirpa__device.parents):
+    if (dirpa__each / "idVendor").exists():
+      def read(name):
+        try:
+          return (dirpa__each / name).read_text().strip()
+        except OSError:
+          return ""
+      return f"{dirpa__each.name}:{read('idVendor')}:{read('idProduct')}:{read('serial')}"
+  return None
+
+def key__by_identity(identity):
+  """The device of a key plugged in now with that identity, or None."""
+  for k in list__key():
+    if key__identity(k) == identity:
+      return k
+  return None
+
+def file_system__freeze(dirp__mount ,log ,preview):
+  """
+  Freeze the file system mounted at dirp__mount: the kernel writes out what is
+  pending and holds every new write until it is thawed. Returns True when it
+  is frozen now.
+  """
+  if preview:
+    log.line("frozen" ,str(dirp__mount)); return True
+  try:
+    fd = os.open(str(dirp__mount) ,os.O_RDONLY | os.O_DIRECTORY)
+    try:
+      fcntl.ioctl(fd ,FIFREEZE ,0)
+    finally:
+      os.close(fd)
+  except OSError as error:
+    log.line("skipped" ,str(dirp__mount) ,f"not frozen: {error.strerror}")
+    return False
+  log.line("frozen" ,str(dirp__mount) ,"its writes are held; the drive is consistent")
+  return True
+
+def file_system__thaw(dirp__mount ,log ,preview):
+  """Thaw a frozen file system. One that is not frozen is left as it is."""
+  if preview:
+    log.line("thawed" ,str(dirp__mount)); return
+  try:
+    fd = os.open(str(dirp__mount) ,os.O_RDONLY | os.O_DIRECTORY)
+    try:
+      fcntl.ioctl(fd ,FITHAW ,0)
+    finally:
+      os.close(fd)
+  except OSError as error:
+    if error.errno != errno.EINVAL:  # EINVAL: it was not frozen
+      log.line("skipped" ,str(dirp__mount) ,f"not thawed: {error.strerror}")
+    return
+  log.line("thawed" ,str(dirp__mount) ,"its held writes go ahead")
+
+def unit__state(unit):
+  status ,out ,_ = run(["systemctl" ,"show" ,"--property=ActiveState" ,"--value" ,unit])
+  return out.strip() if status == 0 else ""
+
 def is__device_unit_active(unit):
   status ,out ,_ = run(["systemctl" ,"show" ,"--property=ActiveState" ,"--value" ,unit])
   return status == 0 and out.strip() == "active"
@@ -262,9 +351,6 @@ def list__plugged():
   except OSError:
     return []
 
-def dirp__tree_of(registration):
-  return Path(registration["dirpa__mount"]) / "home" / DIRN__TREE
-
 def list__system_map_row(system_db ,database_uuid):
   return system_db.rows("SELECT * FROM system_map WHERE database_uuid = ? AND state = 'in use' ORDER BY system_account__name",
                         (database_uuid,))
@@ -276,20 +362,19 @@ def is__child_account(name):
 # --------------------------------------------------------------------------------
 # register and unregister
 
-def register(dirp__tree ,name ,log ,preview):
+def register(dirp__storage ,name ,log ,preview):
   """
-  Record a removable storage. It is given by its tree dir, while it is
+  Record a removable storage. It is given by its root, while it is
   unlocked and mounted, so that everything recorded is read from the storage
   itself: the LUKS2 partition under the mount, its LUKS uuid, the key enrolled
   in its header, and its database uuid.
   """
-  problem = dirp__tree__problem(dirp__tree)
+  problem = dirp__storage__problem(dirp__storage)
   if problem:
-    log.error(str(dirp__tree) ,problem); return
-  dirp__tree = Path(os.path.abspath(dirp__tree))
-  dirpa__storage_root = dirp__tree.parent.parent
+    log.error(str(dirp__storage) ,problem); return
+  dirpa__storage_root = Path(os.path.abspath(dirp__storage))
   if dirpa__storage_root == Path("/"):
-    log.error(str(dirp__tree) ,"is on the file system the system runs from, which is attached at boot and never unplugged"); return
+    log.error(str(dirpa__storage_root) ,"is the root of the file system the system runs from, which is attached at boot and never unplugged"); return
   if not Kernel.is__mount_point(dirpa__storage_root):
     log.error(str(dirpa__storage_root) ,"not a mount point; register a storage while it is unlocked and mounted"); return
   source = mount_source(dirpa__storage_root)
@@ -326,7 +411,7 @@ def register(dirp__tree ,name ,log ,preview):
 
   system_db = open_system_database(log)
   if system_db is None: return
-  storage_db = Storage.open_storage_database(dirp__tree ,log)
+  storage_db = Storage.open_storage_database(dirpa__storage_root ,log)
   if storage_db is None: return
 
   by_name = registration__by_name(system_db ,name)
@@ -415,10 +500,15 @@ def plug_locked(device ,passphrase ,log ,preview):
   # unlock, unless it is unlocked already
   holder = [h for h in list__dm_holder(partition.name) if dm_name(h)]
   key_used = None
+  previous = None
   if holder:
     mapper = dm_name(holder[0])
     previous = plugged__read(name)
-    key_used = previous.get("key") if previous and previous.get("mapper") == mapper else None
+    if previous and previous.get("mapper") == mapper:
+      key_used = previous.get("key")
+      # a key that reset has come back under another device
+      if previous.get("key_identity"):
+        key_used = key__by_identity(previous["key_identity"]) or key_used
     log.line("kept" ,f"storage {name}" ,f"already unlocked as {mapper}")
   else:
     mapper = MAPPER_PREFIX + name
@@ -439,6 +529,8 @@ def plug_locked(device ,passphrase ,log ,preview):
   mapped_device = Path("/dev/mapper") / mapper
   if Kernel.is__mount_point(dirpa__mount):
     log.line("kept" ,str(dirpa__mount) ,"already mounted")
+    # left frozen by an unplug that did not finish
+    file_system__thaw(dirpa__mount ,log ,preview)
   else:
     if not dirpa__mount.exists():
       if not act(log ,preview ,str(dirpa__mount) ,os.makedirs ,dirpa__mount ,0o700): return
@@ -449,12 +541,15 @@ def plug_locked(device ,passphrase ,log ,preview):
 
   record = {"storage_name": name ,"luks_uuid": uuid_text ,"partition": str(partition) ,"mapper": mapper,
             "dirpa__mount": str(dirpa__mount) ,"key": key_used ,"plugged": Database.now()}
+  identity = key__identity(key_used) if key_used else None
+  if identity is None and key_used and holder and previous:
+    identity = previous.get("key_identity")
+  record["key_identity"] = identity
   if not preview: plugged__write(record)
 
   # attach, and offer its login accounts on the login screen
-  dirp__tree = dirp__tree_of(r)
   error_before = log.count_of__error
-  Storage.attach(str(dirp__tree) ,False ,log ,preview)
+  Storage.attach(r["dirpa__mount"] ,False ,log ,preview)
   if log.count_of__error == error_before:
     is__hidden__set_all(system_db ,r["database_uuid"] ,False ,log ,preview)
 
@@ -495,6 +590,10 @@ def key__watch(key ,name ,log ,preview):
   kernel_name = os.path.basename(key)
   device_unit = f"dev-{kernel_name}.device"
   unit = KEY_UNIT__TEMPLATE.format(kernel_name)
+  if not preview:
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline and unit__state(unit) in ("deactivating" ,"activating"):
+      time.sleep(0.2)
   if not preview and not is__device_unit_active(device_unit):
     log.line("warning" ,f"storage {name}" ,f"systemd has no {device_unit}, so pulling the key out will not unplug it;"
              " run 'Account-Tree_admin system configure', which tags keys for systemd")
@@ -544,13 +643,35 @@ def unplug_key(key ,log ,preview):
   """
   if not key.startswith("/"): key = "/" + key
   with Lock():
-    found = False
-    for record in list__plugged():
-      if record.get("key") == key:
-        found = True
-        unplug_locked(record["storage_name"] ,log ,preview)
-    if not found:
-      log.line("skipped" ,key ,"it unlocked no storage plugged in now")
+    list__record = [r for r in list__plugged() if r.get("key") == key]
+    if not list__record:
+      log.line("skipped" ,key ,"it unlocked no storage plugged in now"); return
+    list__frozen = [r for r in list__record if file_system__freeze(r["dirpa__mount"] ,log ,preview)]
+    returned = None
+    try:
+      identity = list__record[0].get("key_identity")
+      if identity and not preview:
+        log.line("waiting" ,key ,f"up to {KEY_RETURN__SECOND} seconds for the key to come back")
+        deadline = time.monotonic() + KEY_RETURN__SECOND
+        while time.monotonic() < deadline:
+          returned = key__by_identity(identity)
+          if returned: break
+          # a drive pulled out while waiting is not waited for
+          if not all(Path(r["partition"]).exists() for r in list__record): break
+          time.sleep(0.5)
+    finally:
+      for r in list__frozen:
+        file_system__thaw(r["dirpa__mount"] ,log ,preview)
+    if returned:
+      for r in list__record:
+        r["key"] = returned
+        plugged__write(r)
+        log.line("kept" ,f"storage {r['storage_name']}" ,f"the key came back as {returned}; a reset, not a removal")
+      # the key's return started Account-Tree_key-arrive.service, which waits
+      # for this lock and then watches the key's new device
+      return
+    for r in list__record:
+      unplug_locked(r["storage_name"] ,log ,preview)
 
 def registration_of(system_db ,spec):
   """
@@ -591,6 +712,10 @@ def unplug_locked(spec ,log ,preview):
   is__open = Path(f"/dev/mapper/{mapper}").exists()
   if not (record or home_mounted or is__open or Kernel.is__mount_point(dirpa__mount)):
     log.line("skipped" ,f"storage {name}" ,"not plugged in"); return
+
+  # a file system left frozen would hold its processes from ending
+  if Kernel.is__mount_point(dirpa__mount):
+    file_system__thaw(dirpa__mount ,log ,preview)
 
   # 1. end every process of its accounts, whoever is at the console
   process__end([m["system_uid"] for m in list__row] ,log ,preview)
@@ -719,10 +844,9 @@ def detach__record(system_db ,r ,log ,preview):
   When the drive has been pulled out first, the storage database cannot be
   written; the next attach finds the head it last recorded.
   """
-  dirp__tree = dirp__tree_of(r)
   storage_db = None
   try:
-    storage_db = Database.Database.open(Database.fpa__storage_database(dirp__tree) ,"storage")
+    storage_db = Database.Database.open(Database.fpa__storage_database(dirpa__Account_Tree(r["dirpa__mount"])) ,"storage")
     SameAccount.system_seen__record(storage_db ,system_db.uuid() ,log ,preview)
     series = SameAccount.head_seen__record(system_db ,storage_db ,"detached" ,None ,preview)
     log.line("recorded" ,f"database {storage_db.short()} detached" ,f"head at series {series} remembered here")

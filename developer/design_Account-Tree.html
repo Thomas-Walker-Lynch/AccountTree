@@ -90,16 +90,16 @@
 
       <ul>
         <li><RT·term>storage</RT·term>: a persistent storage device carrying accounts' data, such as the SSD inside a laptop or an encrypted USB drive. Its root is the directory it is mounted at. A storage can be moved between machines.</li>
-        <li><RT·term>tree dir</RT·term>: the directory <RT·code>&lt;storage root&gt;/home/Account-Tree</RT·code>, holding the storage database and the accounts' homes. On the disk a system runs from it is <RT·code>/home/Account-Tree</RT·code>. Account-Tree_admin is given a tree dir to name a storage.</li>
+        <li><RT·term>Account-Tree directory</RT·term>: the directory <RT·code>&lt;storage root&gt;/home/Account-Tree</RT·code>, holding the storage database and the accounts' homes. On the disk a system runs from it is <RT·code>/home/Account-Tree</RT·code>. Account-Tree_admin is given a storage's root to name a storage, and finds the Account-Tree directory below it.</li>
         <li><RT·term>system</RT·term>: an installed, running Linux, with its own <RT·code>/etc/passwd</RT·code>, its own uid numbering, and its own <RT·code>/home</RT·code>, into which the accounts kept on attached storage are mounted.</li>
         <li><RT·term>system account</RT·term>: an account in a system's <RT·code>/etc/passwd</RT·code>. <RT·term>storage account</RT·term>: an account in a storage database.</li>
-        <li><RT·term>storage database</RT·term>: the SQLite database in a tree dir, describing the storage accounts kept on that storage.</li>
+        <li><RT·term>storage database</RT·term>: the SQLite database in an Account-Tree directory, describing the storage accounts kept on that storage.</li>
         <li><RT·term>system database</RT·term>: the SQLite database at <RT·code>/var/lib/Account-Tree/system.sqlite3</RT·code>, a system's own record. Its system map is the authority for which storage accounts are the same accounts as system accounts.</li>
         <li><RT·term>database uuid</RT·term>: the random identifier a storage database is given when it is made. It names the database, not the storage: a copy of the database carries it too. It is not the storage uuid that a file system is given when it is formatted, which Account-Tree does not use.</li>
         <li><RT·term>system uuid</RT·term>: the random identifier a system database is given when it is made, which names the system.</li>
         <li><RT·term>database uid</RT·term>: a storage account's uid in its storage database's own numbering. The account's files on the storage carry it.</li>
         <li><RT·term>system uid</RT·term>: a system account's uid, in <RT·code>/etc/passwd</RT·code>.</li>
-        <li><RT·term>account specifier</RT·term>: the name of an account in one place: <RT·code>system &lt;host name&gt; &lt;system account&gt;</RT·code>, or <RT·code>storage &lt;tree dir&gt; &lt;storage account&gt;</RT·code>.</li>
+        <li><RT·term>account specifier</RT·term>: the name of an account in one place: <RT·code>system &lt;host name&gt; &lt;system account&gt;</RT·code>, or <RT·code>storage &lt;dirp_storage&gt; &lt;storage account&gt;</RT·code>.</li>
         <li><RT·term>same account</RT·term>: two account specifiers that name one account in two places. The system map records which system accounts are the same accounts as which storage accounts.</li>
         <li><RT·term>view</RT·term>: an idmapped mount through which a parent account sees a child account's files as its own.</li>
         <li><RT·term>request</RT·term>: what a person asks of Account-Tree, such as making a child account. A request is an instruction of the request language, given in a journal to the request gate.</li>
@@ -140,11 +140,11 @@
       <h2>Storage layout</h2>
 
       <p>
-        Every storage has the same layout under its root, where the root is the directory the storage is mounted at: <RT·code>/</RT·code> for the disk a system runs from, or a mount point such as <RT·code>/mnt/Eagle</RT·code> for a drive plugged in. Its tree dir is <RT·code>home/Account-Tree</RT·code> under the root, so <RT·code>/home/Account-Tree</RT·code> or <RT·code>/mnt/Eagle/home/Account-Tree</RT·code>.
+        Every storage has the same layout under its root, where the root is the directory the storage is mounted at: <RT·code>/</RT·code> for the disk a system runs from, or a mount point such as <RT·code>/mnt/Eagle</RT·code> for a drive plugged in. Its Account-Tree directory is <RT·code>home/Account-Tree</RT·code> under the root, so <RT·code>/home/Account-Tree</RT·code> or <RT·code>/mnt/Eagle/home/Account-Tree</RT·code>.
       </p>
 
       <RT·code>
-        home/Account-Tree/                            the tree dir: root's, mode 0711
+        home/Account-Tree/                            the Account-Tree directory: root's, mode 0711
         home/Account-Tree/database/                   the database account's, mode 0700
         home/Account-Tree/database/storage.sqlite3    the storage database
         home/Account-Tree/account-data/               root's, mode 0700
@@ -153,11 +153,11 @@
       </RT·code>
 
       <p>
-        Everything Account-Tree keeps on a storage is under its tree dir, so the storage can carry other things beside it, and the storage database sits with the data it describes. <RT·code>account-data</RT·code> holds the accounts' homes; on a running system each is reached through an idmapped mount at <RT·code>/home/&lt;system account&gt;</RT·code>. An account named <RT·code>database</RT·code> cannot collide with the database, because the two are at different levels.
+        Everything Account-Tree keeps on a storage is under its Account-Tree directory, so the storage can carry other things beside it, and the storage database sits with the data it describes. <RT·code>account-data</RT·code> holds the accounts' homes; on a running system each is reached through an idmapped mount at <RT·code>/home/&lt;system account&gt;</RT·code>. An account named <RT·code>database</RT·code> cannot collide with the database, because the two are at different levels.
       </p>
 
       <p>
-        The ownership divides the tree dir between the two accounts that act on it. SQLite writes a journal file beside a database while a transaction is open, so the account that writes a database needs to write the directory it is in; the database is therefore in a directory of its own, <RT·code>database/</RT·code>, which the database account owns. Everything else is root's. The database account can pass through the tree dir, mode 0711, to reach its directory, but cannot enter <RT·code>account-data</RT·code>, so it cannot rename, move or read a home. A root interpreter that checks a home's owner on disk is then checking something the database account could not have arranged; see Answer check.
+        The ownership divides the Account-Tree directory between the two accounts that act on it. SQLite writes a journal file beside a database while a transaction is open, so the account that writes a database needs to write the directory it is in; the database is therefore in a directory of its own, <RT·code>database/</RT·code>, which the database account owns. Everything else is root's. The database account can pass through the Account-Tree directory, mode 0711, to reach its directory, but cannot enter <RT·code>account-data</RT·code>, so it cannot rename, move or read a home. A root interpreter that checks a home's owner on disk is then checking something the database account could not have arranged; see Answer check.
       </p>
 
       <p>
@@ -177,7 +177,7 @@
       <h2>Copy and branch</h2>
 
       <p>
-        The database uuid names the database, not the storage it is on. A copy of a tree dir, made for a backup or an archive, carries the same database uuid, and is the same database until one of the two is changed. Because a tree dir can be anywhere, an archive kept at <RT·code>/&lt;storage name&gt;/&lt;date&gt;/home/Account-Tree</RT·code> can be attached by giving that tree dir.
+        The database uuid names the database, not the storage it is on. A copy of an Account-Tree directory, made for a backup or an archive, carries the same database uuid, and is the same database until one of the two is changed. Because an Account-Tree directory can be anywhere, an archive kept at <RT·code>/&lt;storage name&gt;/&lt;date&gt;/home/Account-Tree</RT·code> can be attached by giving <RT·code>/&lt;storage name&gt;/&lt;date&gt;</RT·code> as the storage's root.
       </p>
 
       <p>
@@ -205,7 +205,7 @@
       </p>
 
       <p>
-        The two lines can also be kept apart, so that both can be attached at once and their files compared. <RT·code>attach &lt;tree dir&gt; branch</RT·code> makes the storage a branch: it gives the database a new database uuid, records in it the database it came from and the head they parted after, and makes a system account for each storage account that had one on the line it came from, named <RT·code>&lt;system account&gt;~&lt;eight hex digits&gt;</RT·code>. The eight digits begin the hash of the transaction that made the branch, which no other branch has, and which does not change as either line grows. The branch is then a storage database in its own right.
+        The two lines can also be kept apart, so that both can be attached at once and their files compared. <RT·code>attach &lt;dirp_storage&gt; branch</RT·code> makes the storage a branch: it gives the database a new database uuid, records in it the database it came from and the head they parted after, and makes a system account for each storage account that had one on the line it came from, named <RT·code>&lt;system account&gt;~&lt;eight hex digits&gt;</RT·code>. The eight digits begin the hash of the transaction that made the branch, which no other branch has, and which does not change as either line grows. The branch is then a storage database in its own right.
       </p>
 
       <p>
@@ -227,7 +227,7 @@
       </p>
 
       <p>
-        A storage database gives out database uids counting down from 1999999999, while systems give out system uids counting up from low numbers. A database uid is therefore not also the system uid of an account, and a file on a storage, seen without its mount, does not appear to belong to a system account it does not belong to, except in the cases given under Limit of a uid. The band 1879048192 to 2147352575 is left unused by systemd's allocation of uids, so a storage database has about 120 million database uids before it leaves the band. An account brought into Account-Tree from an existing one can keep its existing uid, with the keyword <RT·code>uid</RT·code> of <RT·code>account make</RT·code>; for that account the coincidence remains, behind the root-only directories of the tree dir.
+        A storage database gives out database uids counting down from 1999999999, while systems give out system uids counting up from low numbers. A database uid is therefore not also the system uid of an account, and a file on a storage, seen without its mount, does not appear to belong to a system account it does not belong to, except in the cases given under Limit of a uid. The band 1879048192 to 2147352575 is left unused by systemd's allocation of uids, so a storage database has about 120 million database uids before it leaves the band. An account brought into Account-Tree from an existing one can keep its existing uid, with the keyword <RT·code>uid</RT·code> of <RT·code>account make</RT·code>; for that account the coincidence remains, behind the root-only directories of the Account-Tree directory.
       </p>
 
       <p>
@@ -288,19 +288,19 @@
       <h2>Deleting storage</h2>
 
       <p>
-        <RT·code>Account-Tree_admin storage delete &lt;tree dir&gt;</RT·code> undoes, on this system, what Account-Tree did for the accounts of the storage database, then deletes the tree dir. It makes every check first, and a failed check changes nothing:
+        <RT·code>Account-Tree_admin storage delete &lt;dirp_storage&gt;</RT·code> undoes, on this system, what Account-Tree did for the accounts of the storage database, then deletes the Account-Tree directory. It makes every check first, and a failed check changes nothing:
       </p>
 
       <ul>
         <li>the storage database names no other system that has seen it, since that system's map would name a database that no longer exists, unless the keyword <RT·code>forget-other-systems</RT·code> is given;</li>
         <li>no system account that is the same account as one of its accounts has a login session;</li>
-        <li>nothing is mounted inside the tree dir;</li>
-        <li>the tree dir holds only the storage database and <RT·code>account-data</RT·code>, and <RT·code>account-data</RT·code> holds only homes of the database's accounts;</li>
+        <li>nothing is mounted inside the Account-Tree directory;</li>
+        <li>the Account-Tree directory holds only the storage database and <RT·code>account-data</RT·code>, and <RT·code>account-data</RT·code> holds only homes of the database's accounts;</li>
         <li>homes that hold files are deleted only when the keyword <RT·code>delete-account-data</RT·code> is given.</li>
       </ul>
 
       <p>
-        For each row of this system's map naming one of its accounts, it then unmounts the home, deletes the mount point attach made, recognized as an empty directory owned by root with mode 0000, deletes the system account and its group when Account-Tree made them, keeps an adopted system account, and retires the row. Last it deletes <RT·code>account-data</RT·code>, the storage database and the tree dir. Run a second time, it finds nothing to delete and says so. <RT·code>system delete</RT·code> deletes the system database, and is refused while any row of the system map is in use.
+        For each row of this system's map naming one of its accounts, it then unmounts the home, deletes the mount point attach made, recognized as an empty directory owned by root with mode 0000, deletes the system account and its group when Account-Tree made them, keeps an adopted system account, and retires the row. Last it deletes <RT·code>account-data</RT·code>, the storage database and the Account-Tree directory. Run a second time, it finds nothing to delete and says so. <RT·code>system delete</RT·code> deletes the system database, and is refused while any row of the system map is in use.
       </p>
 
       <h1>Database</h1>
@@ -376,11 +376,11 @@
       <h1>Same account</h1>
 
       <p>
-        A storage account's home, <RT·code>account-data/&lt;name&gt;</RT·code> in its tree dir, carries only its database uid. What lets it be used on a system is a row of that system's map, saying that a system account there is the same account as the storage account. The administrator states it:
+        A storage account's home, <RT·code>account-data/&lt;name&gt;</RT·code> in its Account-Tree directory, carries only its database uid. What lets it be used on a system is a row of that system's map, saying that a system account there is the same account as the storage account. The administrator states it:
       </p>
 
       <RT·code>
-        Account-Tree_admin is-same-account system &lt;host name&gt; &lt;system account&gt; storage &lt;tree dir&gt; &lt;storage account&gt; [make-system-account]
+        Account-Tree_admin is-same-account system &lt;host name&gt; &lt;system account&gt; storage &lt;dirp_storage&gt; &lt;storage account&gt; [make-system-account]
       </RT·code>
 
       <p>
@@ -442,7 +442,7 @@
       </p>
 
       <p>
-        The database account owns <RT·code>/var/lib/Account-Tree</RT·code>, where the system database is, and on each storage the tree dir's <RT·code>database/</RT·code> directory. Its interpreter opens the databases with SQLite's defensive settings, <RT·code>trusted_schema</RT·code> off among them.
+        The database account owns <RT·code>/var/lib/Account-Tree</RT·code>, where the system database is, and on each storage the Account-Tree directory's <RT·code>database/</RT·code> directory. Its interpreter opens the databases with SQLite's defensive settings, <RT·code>trusted_schema</RT·code> off among them.
       </p>
 
       <h2>Who is asking</h2>
@@ -529,7 +529,7 @@
       </ul>
 
       <p>
-        The constraints that limit what root's interpreters do with what they are told stay with them: a new system uid lies in Account-Tree's range and appears in no row of the system map; a system account is deleted only when the system map records that Account-Tree made it; a home is mounted only from <RT·code>&lt;tree dir&gt;/account-data/&lt;storage account&gt;</RT·code> onto <RT·code>/home/&lt;system account&gt;</RT·code>, with the uid translation of the row of the system map that pairs them; a view is mounted only of a child account's home, at <RT·code>~/account_child/&lt;short name&gt;</RT·code> of its parent; every mount is <RT·code>nosuid</RT·code> and <RT·code>nodev</RT·code>; a mount point is an empty directory owned by root with mode 0000, made and deleted only at <RT·code>/home/&lt;system account&gt;</RT·code>; a home is deleted only during the deletion of its storage, or of a deallocated account.
+        The constraints that limit what root's interpreters do with what they are told stay with them: a new system uid lies in Account-Tree's range and appears in no row of the system map; a system account is deleted only when the system map records that Account-Tree made it; a home is mounted only from <RT·code>&lt;storage root&gt;/home/Account-Tree/account-data/&lt;storage account&gt;</RT·code> onto <RT·code>/home/&lt;system account&gt;</RT·code>, with the uid translation of the row of the system map that pairs them; a view is mounted only of a child account's home, at <RT·code>~/account_child/&lt;short name&gt;</RT·code> of its parent; every mount is <RT·code>nosuid</RT·code> and <RT·code>nodev</RT·code>; a mount point is an empty directory owned by root with mode 0000, made and deleted only at <RT·code>/home/&lt;system account&gt;</RT·code>; a home is deleted only during the deletion of its storage, or of a deallocated account.
       </p>
 
       <p>
@@ -578,7 +578,7 @@
       <h2>Attaching storage</h2>
 
       <p>
-        <RT·code>Account-Tree_admin attach &lt;tree dir&gt;</RT·code> verifies the storage database's standards and hash chain, compares its record with the heads seen here, as described under Copy and branch, then reads this system's map for the rows naming that database uuid, and nothing else. For each, it checks that the storage account is active and that the system account exists with its system uid and with its home at <RT·code>/home/&lt;system account&gt;</RT·code>, and mounts the storage account's home there, translating the database uid to the system uid. Storage accounts with no row are logged as skipped. The mounts are <RT·code>nosuid</RT·code> and <RT·code>nodev</RT·code>, since a storage can carry set-user-id programs and device files. Files on the storage owned by database uids the mount does not translate appear owned by <RT·code>nobody</RT·code>.
+        <RT·code>Account-Tree_admin attach &lt;dirp_storage&gt;</RT·code> verifies the storage database's standards and hash chain, compares its record with the heads seen here, as described under Copy and branch, then reads this system's map for the rows naming that database uuid, and nothing else. For each, it checks that the storage account is active and that the system account exists with its system uid and with its home at <RT·code>/home/&lt;system account&gt;</RT·code>, and mounts the storage account's home there, translating the database uid to the system uid. Storage accounts with no row are logged as skipped. The mounts are <RT·code>nosuid</RT·code> and <RT·code>nodev</RT·code>, since a storage can carry set-user-id programs and device files. Files on the storage owned by database uids the mount does not translate appear owned by <RT·code>nobody</RT·code>.
       </p>
 
       <h2>View</h2>
@@ -624,7 +624,7 @@
 
       <ul>
         <li><RT·code>Account-Tree</RT·code>: the person's program. Its commands compose requests and give them to the request gate; its <RT·code>window</RT·code> command opens the resource window, which shows the account's child accounts and their states and gives the same requests. Runs under the person's account.</li>
-        <li><RT·code>Account-Tree_admin</RT·code>: the administrator's program, run under root. Its commands: <RT·code>system make</RT·code>, <RT·code>system show</RT·code> and <RT·code>system delete</RT·code>; <RT·code>storage make</RT·code>, <RT·code>storage show</RT·code> and <RT·code>storage delete</RT·code>, each given a tree dir; <RT·code>account make</RT·code>; <RT·code>is-same-account</RT·code>, <RT·code>is-not-same-account</RT·code>, <RT·code>same-account show</RT·code> and <RT·code>same-account suggest</RT·code>; <RT·code>attach</RT·code> and <RT·code>detach</RT·code>; <RT·code>limit set</RT·code>; and <RT·code>reconcile</RT·code>. Each composes a journal for the administrator's gate. Detaching is refused while a system account it would unmount has a session. Unlocking an encrypted storage and mounting it come later.</li>
+        <li><RT·code>Account-Tree_admin</RT·code>: the administrator's program, run under root. Its commands: <RT·code>system make</RT·code>, <RT·code>system show</RT·code> and <RT·code>system delete</RT·code>; <RT·code>storage make</RT·code>, <RT·code>storage show</RT·code> and <RT·code>storage delete</RT·code>, each given a storage's root; <RT·code>account make</RT·code>; <RT·code>is-same-account</RT·code>, <RT·code>is-not-same-account</RT·code>, <RT·code>same-account show</RT·code> and <RT·code>same-account suggest</RT·code>; <RT·code>attach</RT·code> and <RT·code>detach</RT·code>; <RT·code>limit set</RT·code>; and <RT·code>reconcile</RT·code>. Each composes a journal for the administrator's gate. Detaching is refused while a system account it would unmount has a session. Unlocking an encrypted storage and mounting it come later.</li>
         <li>The three gates, each with its guard and interpreter, installed owned by root, in directories only root can write, except the record gate, owned by the database account.</li>
         <li><RT·code>home_present</RT·code>: the PAM check.</li>
         <li>The schema and initialization scripts.</li>

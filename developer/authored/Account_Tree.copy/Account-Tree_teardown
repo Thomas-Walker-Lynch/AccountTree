@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+# -*- mode: sh; indent-tabs-mode: nil; sh-basic-offset: 2 -*-
+#
+# Account-Tree_teardown
+#
+# Undo Account-Tree_install: stop and remove the systemd units and the udev
+# rule that system configure wrote, and remove the install directory and the
+# run directory. A unit or rule file that does not begin with Account-Tree's
+# mark was not written by it, and is left.
+#
+# It is refused while a storage is plugged in, since its accounts' homes are
+# mounted and its key is watched. It is refused while the system database
+# exists, since the database records the system accounts Account-Tree made and
+# which storage accounts they are; the orderly way is to delete each storage
+# and then the system database with Account-Tree_admin, which undoes those
+# first. The keywords save-database and delete-database go ahead without
+# that, for a system under development.
+#
+# Run it under root, from the project's consumer directory or the installed
+# copy. It removes the installed copy of itself last.
+
+DIRPA__INSTALL=/usr/local/lib/Account-Tree
+DIRPA__SYSTEM=/var/lib/Account-Tree
+DIRPA__RUN=/run/Account-Tree
+DIRPA__UNIT=/etc/systemd/system
+FPA__RULE=/etc/udev/rules.d/90-Account-Tree.rules
+LIST__UNIT="Account-Tree_plug@.service Account-Tree_key@.service Account-Tree_key-arrive.service"
+# the first line of each file system configure writes; SystemConfiguration.py has the same text
+MARK="# made by Account-Tree; Account-Tree_admin system configure replaces this file"
+
+usage(){
+  cat <<EOF
+Usage: Account-Tree_teardown <command> [keyword]
+       Account-Tree_teardown preview <command> [keyword]
+  help | -h | --help    print this message (also printed when given no arguments)
+  run                   remove the units, the udev rule, $DIRPA__INSTALL and
+                        $DIRPA__RUN. Refused while a storage is plugged in, and
+                        while the system database exists
+  run save-database     the same, first moving $DIRPA__SYSTEM aside, to
+                        ${DIRPA__SYSTEM}_saved_<UTC time>
+  run delete-database   the same, first deleting $DIRPA__SYSTEM
+  preview run ...       print what run would do, change nothing
+
+With either keyword the system accounts Account-Tree made stay in /etc/passwd,
+and the storage databases still name this system. To undo those as well, run
+Account-Tree_admin storage delete <dirp_storage> for each storage, then
+Account-Tree_admin system delete, and then Account-Tree_teardown run.
+EOF
+}
+
+# the names of the storage plugged in, one per line
+list__plugged(){
+  [ -d "$DIRPA__RUN/plugged" ] || return 0
+  find "$DIRPA__RUN/plugged" -maxdepth 1 -name '*.json' -printf '%f\n' | sed 's/\.json$//' | sort
+}
+
+is__marked(){
+  [ "$(head -n 1 -- "$1" 2>/dev/null)" = "$MARK" ]
+}
+
+# why teardown cannot go ahead, one reason per line; nothing when it can
+problem(){
+  local database=$1 name
+  while IFS= read -r name; do
+    [ -n "$name" ] && echo "storage $name is plugged in; first run: Account-Tree_admin storage unplug $name"
+  done < <(list__plugged)
+  if [ -e "$DIRPA__SYSTEM/system.sqlite3" ] && [ "$database" = keep ]; then
+    echo "the system database $DIRPA__SYSTEM/system.sqlite3 exists. Either undo what it records, with"
+    echo "  Account-Tree_admin storage delete <dirp_storage>  for each storage, then"
+    echo "  Account-Tree_admin system delete"
+    echo "or go ahead without that:"
+    echo "  Account-Tree_teardown run save-database     moves $DIRPA__SYSTEM aside"
+    echo "  Account-Tree_teardown run delete-database   deletes it"
+    echo "Account-Tree_admin system show and same-account show print what it records."
+  fi
+}
+
+teardown(){
+  local preview=$1 database=$2
+  local verb__removed=removed verb__stopped=stopped verb__moved=moved verb__ran=ran
+  if [ "$preview" = yes ]; then
+    verb__removed="would remove" verb__stopped="would stop" verb__moved="would move" verb__ran="would run"
+  fi
+  local count_of__removed=0 count_of__left=0 changed=no
+  local unit filep__unit
+
+  for unit in $LIST__UNIT; do
+    filep__unit="$DIRPA__UNIT/$unit"
+    [ -e "$filep__unit" ] || continue
+    if ! is__marked "$filep__unit"; then
+      printf '  %-16s%s  (%s)\n' "left" "$filep__unit" "not made by Account-Tree"; count_of__left=$((count_of__left + 1))
+      continue
+    fi
+    # a template unit, name@.service, is stopped by its instances, name@*.service
+    printf '  %-16s%s\n' "$verb__stopped" "${unit/@./@*.}"
+    if [ "$preview" != yes ] && command -v systemctl >/dev/null; then
+      systemctl stop "${unit/@./@*.}" 2>/dev/null
+    fi
+    printf '  %-16s%s\n' "$verb__removed" "$filep__unit"; count_of__removed=$((count_of__removed + 1)); changed=yes
+    [ "$preview" = yes ] || rm -f -- "$filep__unit" || return 1
+  done
+
+  if [ -e "$FPA__RULE" ]; then
+    if is__marked "$FPA__RULE"; then
+      printf '  %-16s%s\n' "$verb__removed" "$FPA__RULE"; count_of__removed=$((count_of__removed + 1)); changed=yes
+      [ "$preview" = yes ] || rm -f -- "$FPA__RULE" || return 1
+    else
+      printf '  %-16s%s  (%s)\n' "left" "$FPA__RULE" "not made by Account-Tree"; count_of__left=$((count_of__left + 1))
+    fi
+  fi
+
+  if [ "$changed" = yes ]; then
+    printf '  %-16s%s\n' "$verb__ran" "systemctl daemon-reload, udevadm control --reload"
+    if [ "$preview" != yes ]; then
+      command -v systemctl >/dev/null && systemctl daemon-reload
+      command -v udevadm >/dev/null && udevadm control --reload
+    fi
+  fi
+
+  if [ -e "$DIRPA__SYSTEM" ]; then
+    if [ "$database" = save ]; then
+      local dirpa__saved
+      dirpa__saved="${DIRPA__SYSTEM}_saved_$(date -u +%Y-%m-%d_%H%M%SZ)"
+      printf '  %-16s%s  (%s)\n' "$verb__moved" "$DIRPA__SYSTEM" "to $dirpa__saved"
+      [ "$preview" = yes ] || mv -- "$DIRPA__SYSTEM" "$dirpa__saved" || return 1
+    elif [ "$database" = delete ] || [ ! -e "$DIRPA__SYSTEM/system.sqlite3" ]; then
+      printf '  %-16s%s\n' "$verb__removed" "$DIRPA__SYSTEM"; count_of__removed=$((count_of__removed + 1))
+      [ "$preview" = yes ] || rm -rf -- "$DIRPA__SYSTEM" || return 1
+    fi
+  fi
+
+  local dirpa__each
+  for dirpa__each in "$DIRPA__RUN" "$DIRPA__INSTALL"; do
+    [ -e "$dirpa__each" ] || continue
+    printf '  %-16s%s\n' "$verb__removed" "$dirpa__each"; count_of__removed=$((count_of__removed + 1))
+    [ "$preview" = yes ] || rm -rf -- "$dirpa__each" || return 1
+  done
+
+  echo "summary:"
+  printf '  %4d  %s\n' "$count_of__removed" "$verb__removed" "$count_of__left" "left"
+}
+
+CLI(){
+  if [ $# -eq 0 ] || [ "$1" = help ] || [ "$1" = -h ] || [ "$1" = --help ]; then
+    usage; return 0
+  fi
+  local preview=no
+  if [ "$1" = preview ]; then preview=yes; shift; fi
+  local database=keep
+  if [ "$1" = run ] && [ $# -eq 1 ]; then :
+  elif [ "$1" = run ] && [ $# -eq 2 ] && [ "$2" = save-database ]; then database=save
+  elif [ "$1" = run ] && [ $# -eq 2 ] && [ "$2" = delete-database ]; then database=delete
+  else
+    echo "Error: unknown command '$*'; run 'Account-Tree_teardown help' for the commands." >&2
+    return 1
+  fi
+  if [ "$(id -u)" -ne 0 ]; then
+    echo "Error: Account-Tree_teardown removes what root installed, and must be run under root." >&2
+    return 1
+  fi
+
+  local word=""
+  [ "$preview" = yes ] && word="preview "
+  echo "Account-Tree_teardown ${word}$*"
+  local reason
+  reason=$(problem "$database")
+  if [ -n "$reason" ]; then
+    echo "Refused:" >&2
+    echo "$reason" | sed 's/^/  /' >&2
+    echo "Nothing was changed." >&2
+    return 1
+  fi
+  teardown "$preview" "$database"
+}
+
+# run the CLI only when executed, so that another script can source the functions
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  CLI "$@"
+fi

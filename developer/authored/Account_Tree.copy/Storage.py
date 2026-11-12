@@ -3,10 +3,12 @@
 Storage - the work functions for storage databases
 
 A storage is a persistent storage device that keeps accounts' data: the disk
-inside the machine, or a drive plugged in. Its tree dir is
-<storage root>/home/Account-Tree, which holds the storage database and
-account-data, the storage accounts' homes. On the disk a system runs from, the
-tree dir is /home/Account-Tree.
+inside the machine, or a drive plugged in. A work function is given a storage
+by its root, the directory it is mounted at: / for the disk the system runs
+from. Account-Tree keeps its files there in one directory, the Account-Tree
+directory, <storage root>/home/Account-Tree, which holds the storage database
+and account-data, the storage accounts' homes. Common.dirpa__Account_Tree
+gives its path.
 
 Which storage accounts are the same accounts as system accounts here is
 recorded in the system map of the system database, and attach mounts exactly
@@ -19,7 +21,7 @@ from pathlib import Path
 
 import Database
 import Kernel
-from Common import DIRPA__HOME ,SEPARATOR ,BRANCH_MARK ,act ,valid_name ,dirp__tree__problem ,host_name
+from Common import DIRPA__HOME ,SEPARATOR ,BRANCH_MARK ,act ,valid_name ,dirp__storage__problem ,dirpa__Account_Tree ,host_name
 from System import open_system_database ,DATABASE_UID__FLOOR
 import SameAccount
 
@@ -29,11 +31,11 @@ import SameAccount
 DATABASE_UID__FIRST = 1_999_999_999
 
 
-def open_storage_database(dirp__tree ,log):
-  problem = dirp__tree__problem(dirp__tree)
+def open_storage_database(dirp__storage ,log):
+  problem = dirp__storage__problem(dirp__storage)
   if problem:
-    log.error(str(dirp__tree) ,problem); return None
-  return Database.Database.open(Database.fpa__storage_database(dirp__tree) ,"storage")
+    log.error(str(dirp__storage) ,problem); return None
+  return Database.Database.open(Database.fpa__storage_database(dirpa__Account_Tree(dirp__storage)) ,"storage")
 
 def system_map__in_use(system_db ,storage_db):
   return system_db.rows("SELECT * FROM system_map WHERE database_uuid = ? AND state = 'in use' ORDER BY system_account__name",
@@ -43,21 +45,18 @@ def system_map__in_use(system_db ,storage_db):
 # --------------------------------------------------------------------------------
 # storage make, show, delete
 
-def storage__make(dirp__tree ,log ,preview):
-  problem = dirp__tree__problem(dirp__tree)
+def storage__make(dirp__storage ,log ,preview):
+  problem = dirp__storage__problem(dirp__storage)
   if problem:
-    log.error(str(dirp__tree) ,problem); return
-  dirp__tree = Path(dirp__tree)
-  dirp__home = dirp__tree.parent
-  dirp__storage_root = dirp__home.parent
-  if not dirp__storage_root.is_dir():
-    log.error(str(dirp__storage_root) ,"the storage root is not a directory"); return
-  filep__database = Database.fpa__storage_database(dirp__tree)
+    log.error(str(dirp__storage) ,problem); return
+  dirp__Account_Tree = dirpa__Account_Tree(dirp__storage)
+  dirp__home = dirp__Account_Tree.parent
+  filep__database = Database.fpa__storage_database(dirp__Account_Tree)
   if filep__database.exists():
     db = Database.Database.open(filep__database ,"storage")
     log.line("kept" ,str(filep__database) ,f"a storage database exists, database uuid {db.uuid()}")
   else:
-    for dirp__each ,mode in ((dirp__home ,0o755) ,(dirp__tree ,0o700)):
+    for dirp__each ,mode in ((dirp__home ,0o755) ,(dirp__Account_Tree ,0o700)):
       if not dirp__each.is_dir():
         if not act(log ,preview ,str(dirp__each) ,os.mkdir ,dirp__each ,mode): return
         if not act(log ,preview ,str(dirp__each) ,os.chmod ,dirp__each ,mode): return
@@ -65,7 +64,7 @@ def storage__make(dirp__tree ,log ,preview):
     db = Database.Database.make(filep__database ,"storage" ,preview)
     # a database uuid is drawn at random; the one drawn in a preview is thrown away
     log.line("made" ,str(filep__database) ,"a new database uuid" if preview else f"database uuid {db.uuid()}")
-  dirp__account_data = Database.dirp__account_data(dirp__tree)
+  dirp__account_data = Database.dirp__account_data(dirp__Account_Tree)
   if dirp__account_data.is_dir():
     log.line("kept" ,str(dirp__account_data))
   else:
@@ -73,11 +72,11 @@ def storage__make(dirp__tree ,log ,preview):
     if not act(log ,preview ,str(dirp__account_data) ,os.chmod ,dirp__account_data ,0o700): return
     log.line("made" ,str(dirp__account_data) ,"root only, mode 0700")
 
-def storage__show(dirp__tree):
-  problem = dirp__tree__problem(dirp__tree)
+def storage__show(dirp__storage):
+  problem = dirp__storage__problem(dirp__storage)
   if problem:
     print(f"Error: {problem}"); return 1
-  db = Database.Database.open(Database.fpa__storage_database(dirp__tree) ,"storage")
+  db = Database.Database.open(Database.fpa__storage_database(dirpa__Account_Tree(dirp__storage)) ,"storage")
   d = db.identity()
   print(f"storage   database uuid {d['database_uuid']}")
   if d["branch_of"]:
@@ -102,20 +101,21 @@ def storage__show(dirp__tree):
   print("verify    " + ("ok" if not problem else "; ".join(problem)))
   return 1 if problem else 0
 
-def storage__delete(dirp__tree ,delete_account_data ,forget_other_systems ,log ,preview):
+def storage__delete(dirp__storage ,delete_account_data ,forget_other_systems ,log ,preview):
   """
-  Undo on this system what Account-Tree did for the storage database in
-  dirp__tree, then delete the tree dir. Every check is made before anything is
-  changed; a check that fails stops the command with nothing changed.
+  Undo on this system what Account-Tree did for the storage database on the
+  storage whose root is dirp__storage, then delete its Account-Tree directory.
+  Every check is made before anything is changed; a check that fails stops the
+  command with nothing changed.
   """
-  problem = dirp__tree__problem(dirp__tree)
+  problem = dirp__storage__problem(dirp__storage)
   if problem:
-    log.error(str(dirp__tree) ,problem); return
-  dirp__tree = Path(dirp__tree)
-  dirp__account_data = Database.dirp__account_data(dirp__tree)
-  filep__database = Database.fpa__storage_database(dirp__tree)
+    log.error(str(dirp__storage) ,problem); return
+  dirp__Account_Tree = dirpa__Account_Tree(dirp__storage)
+  dirp__account_data = Database.dirp__account_data(dirp__Account_Tree)
+  filep__database = Database.fpa__storage_database(dirp__Account_Tree)
   if not filep__database.is_file():
-    log.line("kept" ,str(dirp__tree) ,"no storage database here; nothing to delete"); return
+    log.line("kept" ,str(dirp__Account_Tree) ,"no storage database here; nothing to delete"); return
   db = Database.Database.open(filep__database ,"storage")
   system_db = Database.Database.open(Database.FPA__SYSTEM_DATABASE ,"system") if Database.FPA__SYSTEM_DATABASE.is_file() else None
   this_system__uuid = system_db.uuid() if system_db else None
@@ -134,9 +134,9 @@ def storage__delete(dirp__tree ,delete_account_data ,forget_other_systems ,log ,
     if m["system_uid"] in in_session:
       problem.append(f"{m['system_account__name']} has a login session")
   for dirp__mount_point in Kernel.list__mount_point():
-    if dirp__mount_point.startswith(str(dirp__tree) + "/"):
-      problem.append(f"{dirp__mount_point} is a mount point inside {dirp__tree}")
-  for entry in sorted(dirp__tree.iterdir()):
+    if dirp__mount_point.startswith(str(dirp__Account_Tree) + "/"):
+      problem.append(f"{dirp__mount_point} is a mount point inside {dirp__Account_Tree}")
+  for entry in sorted(dirp__Account_Tree.iterdir()):
     if entry.name != "account-data" and not entry.name.startswith("database.sqlite3"):
       problem.append(f"{entry} is not Account-Tree's")
   list__holding_file = []
@@ -149,14 +149,14 @@ def storage__delete(dirp__tree ,delete_account_data ,forget_other_systems ,log ,
   if list__holding_file and not delete_account_data:
     problem.append("these homes hold files: " + ", ".join(list__holding_file) + "; give the keyword delete-account-data to delete them too")
   if problem:
-    for p in problem: log.error(str(dirp__tree) ,p)
-    log.line("kept" ,str(dirp__tree) ,"nothing was changed")
+    for p in problem: log.error(str(dirp__Account_Tree) ,p)
+    log.line("kept" ,str(dirp__Account_Tree) ,"nothing was changed")
     return
 
   # ---- this system's system accounts for its storage accounts
   for m in in_use:
-    if not SameAccount.same_account__end(m ,system_db ,dirp__tree ,account_name.get(m["database_uid"] ,"?") ,log ,preview):
-      log.line("stopped" ,str(dirp__tree) ,"nothing further was changed"); return
+    if not SameAccount.same_account__end(m ,system_db ,dirp__Account_Tree ,account_name.get(m["database_uid"] ,"?") ,log ,preview):
+      log.line("stopped" ,str(dirp__Account_Tree) ,"nothing further was changed"); return
 
   # ---- files
   if dirp__account_data.is_dir():
@@ -165,12 +165,12 @@ def storage__delete(dirp__tree ,delete_account_data ,forget_other_systems ,log ,
     log.line("deleted" ,str(dirp__account_data) ,f"{count_of__home} home" + ("" if count_of__home == 1 else "s"))
   short ,database_uuid = db.short() ,db.uuid()
   db.close()
-  for entry in sorted(dirp__tree.iterdir()):
+  for entry in sorted(dirp__Account_Tree.iterdir()):
     if entry.name.startswith("database.sqlite3"):
       if not act(log ,preview ,str(entry) ,entry.unlink): return
       log.line("deleted" ,str(entry) ,f"database {short}" if entry.name == "database.sqlite3" else None)
-  if not act(log ,preview ,str(dirp__tree) ,dirp__tree.rmdir): return
-  log.line("deleted" ,str(dirp__tree))
+  if not act(log ,preview ,str(dirp__Account_Tree) ,dirp__Account_Tree.rmdir): return
+  log.line("deleted" ,str(dirp__Account_Tree))
 
   # ---- its record as a removable storage
   if system_db is not None:
@@ -182,10 +182,10 @@ def storage__delete(dirp__tree ,delete_account_data ,forget_other_systems ,log ,
 # --------------------------------------------------------------------------------
 # account make
 
-def account__make(dirp__tree ,name ,database_uid ,parent ,make_system_account ,log ,preview):
+def account__make(dirp__storage ,name ,database_uid ,parent ,make_system_account ,log ,preview):
   """
-  Make a storage account in the storage database in dirp__tree, with its home in
-  account-data. Its parent is the account whose name its own begins with,
+  Make a storage account in the storage database of the storage whose root is
+  dirp__storage, with its home in account-data. Its parent is the account whose name its own begins with,
   before the last '·', or the one given; an account with no '·' in its name
   is a child of root. With make_system_account, also make a system account of
   the same name and record that the two are the same account.
@@ -193,7 +193,7 @@ def account__make(dirp__tree ,name ,database_uid ,parent ,make_system_account ,l
   problem = valid_name(name)
   if problem:
     log.error(name ,problem); return
-  db = open_storage_database(dirp__tree ,log)
+  db = open_storage_database(dirp__storage ,log)
   if db is None: return
   if db.row("SELECT 1 FROM account WHERE name = ?" ,(name,)):
     log.line("kept" ,f"storage account {name}" ,"already in this database"); return
@@ -215,7 +215,7 @@ def account__make(dirp__tree ,name ,database_uid ,parent ,make_system_account ,l
   elif db.row("SELECT 1 FROM database_uid WHERE database_uid = ?" ,(database_uid,)):
     log.error(name ,f"database uid {database_uid} has been given out before"); return
 
-  dirp__home = Database.dirp__account_data(dirp__tree) / name
+  dirp__home = Database.dirp__account_data(dirpa__Account_Tree(dirp__storage)) / name
   if dirp__home.exists() and dirp__home.stat().st_uid != database_uid:
     log.error(str(dirp__home) ,f"exists, owned by uid {dirp__home.stat().st_uid}, not database uid {database_uid}"); return
 
@@ -274,7 +274,7 @@ def continuity(system_db ,db):
       return "sideways" ,s
   return "unrelated" ,None
 
-def storage__branch(system_db ,db ,dirp__tree ,log ,preview):
+def storage__branch(system_db ,db ,dirp__Account_Tree ,log ,preview):
   """
   Make the storage database a branch: give it a new database uuid, record the
   database it came from and the head they parted after, and make a system
@@ -308,7 +308,7 @@ def storage__branch(system_db ,db ,dirp__tree ,log ,preview):
 # --------------------------------------------------------------------------------
 # attach and detach
 
-def attach(dirp__tree ,branch ,log ,preview):
+def attach(dirp__storage ,branch ,log ,preview):
   """
   Mount the home of each storage account that the system map makes the same
   account as a system account here, at /home/<system account>.
@@ -322,8 +322,9 @@ def attach(dirp__tree ,branch ,log ,preview):
   """
   system_db = open_system_database(log)
   if system_db is None: return
-  db = open_storage_database(dirp__tree ,log)
+  db = open_storage_database(dirp__storage ,log)
   if db is None: return
+  dirp__Account_Tree = dirpa__Account_Tree(dirp__storage)
   problem = db.verify()
   if problem:
     for p in problem: log.error(str(db.path) ,p)
@@ -331,21 +332,21 @@ def attach(dirp__tree ,branch ,log ,preview):
   log.line("found" ,f"database {db.short()}" ,f"series {db.head()[0]}, chain verified")
 
   if branch:
-    storage__branch(system_db ,db ,dirp__tree ,log ,preview)
+    storage__branch(system_db ,db ,dirp__Account_Tree ,log ,preview)
     if preview:
       log.line("mounted" ,"the branch's homes" ,"at /home/<system account>~<8 hex>")
       return
 
   in_use = system_map__in_use(system_db ,db)
   if not in_use:
-    log.line("skipped" ,str(dirp__tree) ,"no storage account of this database is the same account as a system account here")
+    log.line("skipped" ,str(dirp__Account_Tree) ,"no storage account of this database is the same account as a system account here")
     return
 
   # the same database attached twice would mount two homes at one place
   for m in in_use:
     a = db.row("SELECT name FROM account WHERE database_uid = ?" ,(m["database_uid"],))
     dirpa__target ,_ = SameAccount.mount_target(m)
-    dirp__source = Database.dirp__account_data(dirp__tree) / (a["name"] if a else "")
+    dirp__source = Database.dirp__account_data(dirp__Account_Tree) / (a["name"] if a else "")
     if Kernel.is__mount_point(dirpa__target) and not SameAccount.is__mounted_from(dirpa__target ,dirp__source):
       log.error(str(dirpa__target) ,"already mounted from another copy of this database, or from something else;"
                 " detach that, or attach this storage with the keyword branch. Nothing was mounted.")
@@ -371,7 +372,7 @@ def attach(dirp__tree ,branch ,log ,preview):
     log.line("warning" ,f"database {db.short()}" ,"its record holds no head seen here; it parted before this system first saw it")
 
   for m in in_use:
-    attach_account(dirp__tree ,db ,m ,log ,preview)
+    attach_account(dirp__Account_Tree ,db ,m ,log ,preview)
   mapped = {m["database_uid"] for m in in_use}
   for a in db.rows("SELECT * FROM account WHERE state = 'active' ORDER BY name"):
     if a["database_uid"] not in mapped:
@@ -380,7 +381,7 @@ def attach(dirp__tree ,branch ,log ,preview):
   seen_series = SameAccount.head_seen__record(system_db ,db ,"attached" ,kind ,preview)
   log.line("recorded" ,f"database {db.short()} attached" ,f"head at series {seen_series} remembered here")
 
-def attach_account(dirp__tree ,db ,m ,log ,preview):
+def attach_account(dirp__Account_Tree ,db ,m ,log ,preview):
   a = db.row("SELECT * FROM account WHERE database_uid = ?" ,(m["database_uid"],))
   if a is None or a["state"] != "active":
     log.error(m["system_account__name"] ,f"the system map names database uid {m['database_uid']},"
@@ -391,7 +392,7 @@ def attach_account(dirp__tree ,db ,m ,log ,preview):
               " it is to be made again"); return
   if entry.pw_dir != str(dirpa__target):
     log.error(m["system_account__name"] ,f"its home is {entry.pw_dir}; Account-Tree mounts a home only at {dirpa__target}"); return
-  dirp__source = Database.dirp__account_data(dirp__tree) / a["name"]
+  dirp__source = Database.dirp__account_data(dirp__Account_Tree) / a["name"]
   if not dirp__source.is_dir():
     log.error(str(dirp__source) ,"no such directory"); return
   if Kernel.is__mount_point(dirpa__target):
@@ -413,18 +414,19 @@ def attach_account(dirp__tree ,db ,m ,log ,preview):
          else f"idmapped, database uid {database_uid} to system uid {m['system_uid']}")
   log.line("mounted" ,str(dirpa__target) ,f"{how}; nosuid, nodev")
 
-def detach(dirp__tree ,log ,preview):
+def detach(dirp__storage ,log ,preview):
   system_db = open_system_database(log)
   if system_db is None: return
-  db = open_storage_database(dirp__tree ,log)
+  db = open_storage_database(dirp__storage ,log)
   if db is None: return
+  dirp__Account_Tree = dirpa__Account_Tree(dirp__storage)
   in_session = Kernel.set__session__system_uid()
   in_use = system_map__in_use(system_db ,db)
   failed = False
   for m in in_use:
     a = db.row("SELECT name FROM account WHERE database_uid = ?" ,(m["database_uid"],))
     dirpa__target ,_ = SameAccount.mount_target(m)
-    dirp__source = Database.dirp__account_data(dirp__tree) / (a["name"] if a else "")
+    dirp__source = Database.dirp__account_data(dirp__Account_Tree) / (a["name"] if a else "")
     if not SameAccount.is__mounted_from(dirpa__target ,dirp__source):
       log.line("kept" ,str(dirpa__target) ,"not mounted from this storage"); continue
     if m["system_uid"] in in_session:

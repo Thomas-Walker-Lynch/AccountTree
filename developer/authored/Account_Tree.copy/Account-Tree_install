@@ -102,7 +102,7 @@ CLI(){
     return 1
   fi
 
-  local source
+  local dirpa__source
   dirpa__source=$(dirpa__source) || return 1
   if [ ! -f "$dirpa__source/Account-Tree_admin" ]; then
     echo "Error: $dirpa__source holds no Account-Tree_admin; run this script from the consumer directory it was promoted to." >&2

@@ -1,7 +1,7 @@
 -- schema_storage.sql
 --
--- The storage database, standard 5.0, at <tree dir>/database.sqlite3, where the
--- tree dir is <storage root>/home/Account-Tree. It records the storage accounts
+-- The storage database, standard 5.0, at
+-- <storage root>/home/Account-Tree/database.sqlite3. It records the storage accounts
 -- kept on the storage. It grants nothing on any system: which storage accounts
 -- are the same accounts as system accounts on a system is recorded by that
 -- system, in its system database.

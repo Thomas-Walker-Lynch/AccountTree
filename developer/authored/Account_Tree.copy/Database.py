@@ -2,9 +2,9 @@
 """
 Database - the two kinds of Account-Tree database
 
-  storage database   <tree dir>/database.sqlite3, identified by its database uuid.
-                     The tree dir is <storage root>/home/Account-Tree, so on the
-                     disk a system runs from it is /home/Account-Tree.
+  storage database   <storage root>/home/Account-Tree/database.sqlite3, identified
+                     by its database uuid; on the disk a system runs from it is
+                     /home/Account-Tree/database.sqlite3.
   system database    /var/lib/Account-Tree/system.sqlite3, identified by its system uuid
 
 Each kind has its own schema, schema_storage.sql and schema_system.sql, and
@@ -69,11 +69,11 @@ FPA__SYSTEM_DATABASE = DIRPA__SYSTEM / "system.sqlite3"
 def now() -> str:
   return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
-def fpa__storage_database(dirp__tree) -> Path:
-  return Path(dirp__tree) / "database.sqlite3"
+def fpa__storage_database(dirp__Account_Tree) -> Path:
+  return Path(dirp__Account_Tree) / "database.sqlite3"
 
-def dirp__account_data(dirp__tree) -> Path:
-  return Path(dirp__tree) / "account-data"
+def dirp__account_data(dirp__Account_Tree) -> Path:
+  return Path(dirp__Account_Tree) / "account-data"
 
 def transaction_hash(previous_hash ,series ,description ,change_text ,nonce) -> str:
   text = "\n".join([previous_hash ,str(series) ,description ,change_text ,nonce])
