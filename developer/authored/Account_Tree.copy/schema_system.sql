@@ -83,7 +83,7 @@ CREATE TABLE account_limit (
 -- device, Account-Tree_<storage name>, and the log lines. A row is never
 -- deleted; unregistering retires it. This table was added after the first
 -- system databases were made, so its statements say IF NOT EXISTS, and
--- opening a system database runs them (see schema_added__text in database.py).
+-- opening a system database runs them (see schema_added__text in Database.py).
 CREATE TABLE IF NOT EXISTS storage_device (
   id             INTEGER PRIMARY KEY,
   storage_name   TEXT NOT NULL,

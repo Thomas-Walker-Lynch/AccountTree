@@ -1,15 +1,15 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-kernel - direct calls to the Linux kernel and to libsystemd, made through
+Kernel - direct calls to the Linux kernel and to libsystemd, made through
 ctypes, for the work that Account-Tree does on mounts, files and sessions.
 
   home__mount            mount an account's home: a bind mount, idmapped when the
                         database uid and system uid differ, nosuid and nodev
   home__unmount          unmount it
-  mount_point__list      every mount point, from /proc/self/mountinfo
+  list__mount_point      every mount point, from /proc/self/mountinfo
   is__mount_point        whether a path is one
   immutable__set         set or clear a directory's immutable flag
-  session__system_uid__set
+  set__session__system_uid
                         the system uids that have a login session
 
 home__mount uses the mount calls Linux has had since 5.12: open_tree clones the
@@ -121,7 +121,7 @@ def home__mount(source ,target ,database_uid ,system_uid ,system_gid):
 def home__unmount(target):
   check(LIBC.umount2(os.fsencode(str(target)) ,0) ,f"umount2 {target}")
 
-def mount_point__list():
+def list__mount_point():
   """
   Every mount point on the system, from /proc/self/mountinfo, where a space
   and a few other characters in a path are written as three-digit octal escapes.
@@ -135,7 +135,7 @@ def mount_point__list():
   return result
 
 def is__mount_point(path):
-  return os.path.abspath(str(path)) in set(mount_point__list())
+  return os.path.abspath(str(path)) in set(list__mount_point())
 
 
 # --------------------------------------------------------------------------------
@@ -161,7 +161,7 @@ def immutable__set(path ,on):
 # --------------------------------------------------------------------------------
 # sessions
 
-def session__system_uid__set():
+def set__session__system_uid():
   """
   The system uids that have a login session, from systemd-logind through
   sd_get_uids in libsystemd. Empty where logind is not running.

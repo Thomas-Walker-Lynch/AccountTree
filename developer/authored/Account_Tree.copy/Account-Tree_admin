@@ -142,13 +142,13 @@ touching the key, plugs it; pulling the key out unplugs it.
 import sys ,os
 sys.path.insert(0 ,os.path.dirname(os.path.realpath(__file__)))
 
-import common
-import system
-import storage
-import same_account
-import storage_plug
-import system_configuration
-from database import DatabaseError
+import Common
+import System
+import Storage
+import SameAccount
+import StoragePlug
+import SystemConfiguration
+from Database import DatabaseError
 
 # first words that take a second word to make the command
 OBJECT = ("system" ,"storage" ,"account" ,"same-account" ,"limit")
@@ -161,28 +161,28 @@ def print_help():
   print(__doc__.strip())
   return 0
 
-def split_keyword(rest ,positional_count ,word__set=() ,value_word__set=()):
+def split_keyword(rest ,count_of__positional ,set__word=() ,set__value_word=()):
   """
-  The first positional_count arguments are positional. Each argument after
-  them is a keyword: a word from word__set, standing alone, or a word from
-  value_word__set, followed by its value. Like the command itself, a keyword is
+  The first count_of__positional arguments are positional. Each argument after
+  them is a keyword: a word from set__word, standing alone, or a word from
+  set__value_word, followed by its value. Like the command itself, a keyword is
   a word and not a flag. Returns (positional ,keyword) where keyword maps each
   word given to True or to its value.
   """
-  if len(rest) < positional_count:
-    raise ValueError(f"{positional_count} arguments are needed before any keyword")
-  positional ,tail ,keyword = rest[:positional_count] ,rest[positional_count:] ,{}
+  if len(rest) < count_of__positional:
+    raise ValueError(f"{count_of__positional} arguments are needed before any keyword")
+  positional ,tail ,keyword = rest[:count_of__positional] ,rest[count_of__positional:] ,{}
   i = 0
   while i < len(tail):
     word = tail[i]
-    if word in word__set:
+    if word in set__word:
       keyword[word] = True; i += 1
-    elif word in value_word__set:
+    elif word in set__value_word:
       if i + 1 >= len(tail):
         raise ValueError(f"'{word}' needs a value after it")
       keyword[word] = tail[i + 1]; i += 2
     else:
-      known = sorted(set(word__set) | set(value_word__set))
+      known = sorted(set(set__word) | set(set__value_word))
       raise ValueError(f"'{word}' is not a keyword here" + (f"; the keywords are {', '.join(known)}" if known else ""))
   return positional ,keyword
 
@@ -192,7 +192,7 @@ def integer(text ,what):
   except ValueError:
     raise ValueError(f"{what} must be a whole number, not '{text}'")
 
-def account_specifier__list(rest):
+def list__account_specifier(rest):
   """
   Parse account specifiers from rest: 'system <host name> <system account>'
   and 'storage <tree dir> <storage account>'.
@@ -211,16 +211,16 @@ def account_specifier__list(rest):
     i += 3
   return result
 
-def system_and_storage(specifier__list):
+def system_and_storage(list__specifier):
   """
   In 5.0, is-same-account relates a system account and a storage account,
   given in either order.
   """
-  kind = sorted(s["kind"] for s in specifier__list)
-  if len(specifier__list) != 2 or kind != ["storage" ,"system"]:
+  kind = sorted(s["kind"] for s in list__specifier)
+  if len(list__specifier) != 2 or kind != ["storage" ,"system"]:
     raise ValueError("in 5.0 the two account specifiers are one system account and one storage account")
-  system_spec = next(s for s in specifier__list if s["kind"] == "system")
-  storage_spec = next(s for s in specifier__list if s["kind"] == "storage")
+  system_spec = next(s for s in list__specifier if s["kind"] == "system")
+  storage_spec = next(s for s in list__specifier if s["kind"] == "storage")
   return system_spec ,storage_spec
 
 def CLI(argv=None):
@@ -241,85 +241,85 @@ def CLI(argv=None):
     print("Error: Account-Tree_admin changes the system and must be run under root." ,file=sys.stderr)
     return 1
 
-  log = common.Log(preview)
+  log = Common.Log(preview)
   try:
     # ---- read only
     if command == "system show" and not rest:
-      return system.system__show()
+      return System.system__show()
     if command == "storage show" and len(rest) == 1:
-      return storage.storage__show(rest[0])
+      return Storage.storage__show(rest[0])
     if command == "same-account show" and len(rest) in (0 ,2):
       if rest and rest[0] != "storage": return usage_error(command)
-      return same_account.same_account__show({"tree_dir": rest[1]} if rest else None)
+      return SameAccount.same_account__show({"tree_dir": rest[1]} if rest else None)
     if command == "same-account suggest" and len(rest) == 2 and rest[0] == "storage":
-      return same_account.same_account__suggest({"tree_dir": rest[1]})
+      return SameAccount.same_account__suggest({"tree_dir": rest[1]})
 
     # ---- changes
     if command == "system make" and len(rest) in (0 ,2):
       if rest:
         first ,last = integer(rest[0] ,"<first system uid>") ,integer(rest[1] ,"<last system uid>")
       else:
-        first ,last = system.DEFAULT__SYSTEM_UID__FIRST ,system.DEFAULT__SYSTEM_UID__LAST
+        first ,last = System.DEFAULT__SYSTEM_UID__FIRST ,System.DEFAULT__SYSTEM_UID__LAST
       header(command ,None ,preview)
-      system.system__make(first ,last ,log ,preview)
+      System.system__make(first ,last ,log ,preview)
     elif command == "system delete" and not rest:
       header(command ,None ,preview)
-      system.system__delete(log ,preview)
+      System.system__delete(log ,preview)
     elif command == "storage make" and len(rest) == 1:
       header(command ,rest[0] ,preview)
-      storage.storage__make(rest[0] ,log ,preview)
+      Storage.storage__make(rest[0] ,log ,preview)
     elif command == "storage delete" and rest:
       (tree_dir,) ,keyword = split_keyword(rest ,1 ,("delete-account-data" ,"forget-other-systems"))
       header(command ,tree_dir ,preview)
-      storage.storage__delete(tree_dir ,"delete-account-data" in keyword ,"forget-other-systems" in keyword ,log ,preview)
+      Storage.storage__delete(tree_dir ,"delete-account-data" in keyword ,"forget-other-systems" in keyword ,log ,preview)
     elif command == "account make" and len(rest) >= 2:
       (tree_dir ,name) ,keyword = split_keyword(rest ,2 ,("make-system-account",) ,("uid" ,"parent"))
       database_uid = integer(keyword["uid"] ,"uid") if "uid" in keyword else None
       header(command ,tree_dir ,preview)
-      storage.account__make(tree_dir ,name ,database_uid ,keyword.get("parent") ,"make-system-account" in keyword ,log ,preview)
+      Storage.account__make(tree_dir ,name ,database_uid ,keyword.get("parent") ,"make-system-account" in keyword ,log ,preview)
     elif command == "is-same-account" and rest:
       specifier ,keyword = split_keyword(rest ,6 ,("make-system-account",))
-      system_spec ,storage_spec = system_and_storage(account_specifier__list(specifier))
+      system_spec ,storage_spec = system_and_storage(list__account_specifier(specifier))
       header(command ,None ,preview)
-      same_account.is__same_account(system_spec ,storage_spec ,"make-system-account" in keyword ,log ,preview)
+      SameAccount.is__same_account(system_spec ,storage_spec ,"make-system-account" in keyword ,log ,preview)
     elif command == "is-not-same-account" and rest:
       specifier ,_ = split_keyword(rest ,6)
-      system_spec ,storage_spec = system_and_storage(account_specifier__list(specifier))
+      system_spec ,storage_spec = system_and_storage(list__account_specifier(specifier))
       header(command ,None ,preview)
-      same_account.is__not_same_account(system_spec ,storage_spec ,log ,preview)
+      SameAccount.is__not_same_account(system_spec ,storage_spec ,log ,preview)
     elif command == "attach" and rest:
       (tree_dir,) ,keyword = split_keyword(rest ,1 ,("branch",))
       header(command ,tree_dir ,preview)
-      storage.attach(tree_dir ,"branch" in keyword ,log ,preview)
+      Storage.attach(tree_dir ,"branch" in keyword ,log ,preview)
     elif command == "detach" and len(rest) == 1:
       header(command ,rest[0] ,preview)
-      storage.detach(rest[0] ,log ,preview)
+      Storage.detach(rest[0] ,log ,preview)
     elif command == "system configure" and not rest:
       header(command ,None ,preview)
-      system_configuration.configure(log ,preview)
+      SystemConfiguration.configure(log ,preview)
     elif command == "storage register" and rest:
       (tree_dir,) ,keyword = split_keyword(rest ,1 ,() ,("name",))
       header(command ,tree_dir ,preview)
-      storage_plug.register(tree_dir ,keyword.get("name") ,log ,preview)
+      StoragePlug.register(tree_dir ,keyword.get("name") ,log ,preview)
     elif command == "storage unregister" and len(rest) == 1:
       header(command ,None ,preview)
-      storage_plug.unregister(rest[0] ,log ,preview)
+      StoragePlug.unregister(rest[0] ,log ,preview)
     elif command == "storage plug" and rest == ["all"]:
       header(command ,None ,preview)
-      storage_plug.plug_all(log ,preview)
+      StoragePlug.plug_all(log ,preview)
     elif command == "storage plug" and rest:
       (device,) ,keyword = split_keyword(rest ,1 ,("passphrase",))
       header(command ,None ,preview)
-      storage_plug.plug(device ,"passphrase" in keyword ,log ,preview)
+      StoragePlug.plug(device ,"passphrase" in keyword ,log ,preview)
     elif command == "storage unplug" and len(rest) == 2 and rest[0] == "key":
       header(command ,None ,preview)
-      storage_plug.unplug_key(rest[1] ,log ,preview)
+      StoragePlug.unplug_key(rest[1] ,log ,preview)
     elif command == "storage unplug" and len(rest) == 1:
       header(command ,None ,preview)
-      storage_plug.unplug(rest[0] ,log ,preview)
+      StoragePlug.unplug(rest[0] ,log ,preview)
     elif command == "limit set" and len(rest) == 2:
       header(command ,None ,preview)
-      system.limit__set(rest[0] ,integer(rest[1] ,"<maximum>") ,log ,preview)
+      System.limit__set(rest[0] ,integer(rest[1] ,"<maximum>") ,log ,preview)
     else:
       return usage_error(command)
   except (DatabaseError ,ValueError) as error:

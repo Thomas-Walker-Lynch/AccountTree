@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-system_configuration - the systemd units and udev rules Account-Tree places
+SystemConfiguration - the systemd units and udev rules Account-Tree places
 
   configure(log ,preview)          write the units and the rules, then have
                                    systemd and udev read them again
@@ -41,16 +41,16 @@ with it every service bound to it, which would unplug the storage.
 import os ,stat ,subprocess
 from pathlib import Path
 
-from common import act
-from storage_plug import registration__list ,run ,run_logged ,program
+from Common import act
+from StoragePlug import list__registration ,run ,run_logged ,program
 
 MARK = "# made by Account-Tree; Account-Tree_admin system configure replaces this file"
-UNIT_DIR = Path("/etc/systemd/system")
-RULE_PATH = Path("/etc/udev/rules.d/90-Account-Tree.rules")
-TRUE_PATH = "/usr/bin/true"
+DIRPA__UNIT = Path("/etc/systemd/system")
+FPA__RULE = Path("/etc/udev/rules.d/90-Account-Tree.rules")
+FPA__TRUE = "/usr/bin/true"
 
 
-def admin_path():
+def fpa__admin():
   """
   The Account-Tree_admin the units are to run: the one running now.
   """
@@ -77,7 +77,7 @@ def quoted(path):
   return '"' + str(path).replace("%" ,"%%") + '"'
 
 def unit_text():
-  admin = quoted(admin_path())
+  admin = quoted(fpa__admin())
   return {
     "Account-Tree_plug@.service": f"""{MARK}
 [Unit]
@@ -102,7 +102,7 @@ After=dev-%i.device
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={TRUE_PATH}
+ExecStart={FPA__TRUE}
 ExecStop={admin} storage unplug key /dev/%i
 """,
     "Account-Tree_key-arrive.service": f"""{MARK}
@@ -125,7 +125,7 @@ def rule_text(system_db):
     "# the device a storage is unlocked as: kept out of the file manager",
     'SUBSYSTEM=="block", ENV{DM_NAME}=="Account-Tree_*", ENV{UDISKS_IGNORE}="1"',
   ]
-  for r in registration__list(system_db):
+  for r in list__registration(system_db):
     line += ["" ,f"# storage {r['storage_name']}, mounted at {r['mount_dir']}",
       f'SUBSYSTEM=="block", ACTION!="remove", ENV{{ID_FS_UUID}}=="{r["luks_uuid"]}", ENV{{UDISKS_IGNORE}}="1",'
       ' TAG+="systemd", ENV{SYSTEMD_WANTS}+="Account-Tree_plug@%k.service"']
@@ -155,26 +155,26 @@ def file__write(path ,text ,log ,preview):
   return True
 
 def rule__write(system_db ,log ,preview):
-  if not RULE_PATH.parent.is_dir():
-    log.line("skipped" ,str(RULE_PATH) ,"this system has no /etc/udev/rules.d"); return False
-  if not file__write(RULE_PATH ,rule_text(system_db) ,log ,preview): return False
+  if not FPA__RULE.parent.is_dir():
+    log.line("skipped" ,str(FPA__RULE) ,"this system has no /etc/udev/rules.d"); return False
+  if not file__write(FPA__RULE ,rule_text(system_db) ,log ,preview): return False
   if program("udevadm") and run_logged(log ,preview ,"udev" ,["udevadm" ,"control" ,"--reload"]):
     log.line("reloaded" ,"udev rules")
   return True
 
 def configure(log ,preview):
-  from system import open_system_database
+  from System import open_system_database
   system_db = open_system_database(log)
   if system_db is None: return
-  admin = admin_path()
+  admin = fpa__admin()
   problem = path_changer(admin)
   if problem:
     log.line("warning" ,str(admin) ,f"the units run this program under root, but {problem}; until Account-Tree is"
              " installed where only root can change it, whoever can change it can act as root")
-  if not UNIT_DIR.is_dir():
-    log.error(str(UNIT_DIR) ,"no such directory; is this system run by systemd?"); return
+  if not DIRPA__UNIT.is_dir():
+    log.error(str(DIRPA__UNIT) ,"no such directory; is this system run by systemd?"); return
   for name ,text in unit_text().items():
-    file__write(UNIT_DIR / name ,text ,log ,preview)
+    file__write(DIRPA__UNIT / name ,text ,log ,preview)
   if run_logged(log ,preview ,"systemd" ,["systemctl" ,"daemon-reload"]):
     log.line("reloaded" ,"systemd units")
   if not rule__write(system_db ,log ,preview): return

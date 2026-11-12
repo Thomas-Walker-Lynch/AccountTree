@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-common - what the work modules of Account-Tree_admin share: the log, carrying
+Common - what the work modules of Account-Tree_admin share: the log, carrying
 out a change, and checking names and paths.
 
 Each work function is given a log and a preview flag. Everything a function
@@ -12,18 +12,18 @@ system is logged and not carried out.
 import socket
 from pathlib import Path
 
-import kernel
-from kernel import KernelError
-from system_account import SystemAccountError
+import Kernel
+from Kernel import KernelError
+from SystemAccount import SystemAccountError
 
-HOME = Path("/home")
+DIRPA__HOME = Path("/home")
 # a parent account's name and its child account's last name are joined by this
 SEPARATOR = "·"
 # a system account made for a branch of a storage database is named
 # <name><BRANCH_MARK><eight hex digits>
 BRANCH_MARK = "~"
-TREE_DIR__NAME = "Account-Tree"
-RESERVED_NAME = {TREE_DIR__NAME}
+DIRN__TREE = "Account-Tree"
+RESERVED_NAME = {DIRN__TREE}
 
 
 class Log:
@@ -43,7 +43,7 @@ class Log:
   def __init__(self ,preview):
     self.preview = preview
     self.count = {}
-    self.error_count = 0
+    self.count_of__error = 0
 
   def line(self ,tag ,subject ,reason=None):
     self.count[tag] = self.count.get(tag ,0) + 1
@@ -54,7 +54,7 @@ class Log:
     print(text)
 
   def error(self ,subject ,reason):
-    self.error_count += 1
+    self.count_of__error += 1
     print(f"  {'error':<{self.TAG_WIDTH}}{subject}  ({reason})")
 
   def summary(self):
@@ -62,11 +62,11 @@ class Log:
     for tag ,n in sorted(self.count.items()):
       if self.preview: tag = self.PREVIEW_TAG.get(tag ,tag)
       print(f"  {n:>4}  {tag}")
-    if self.error_count:
-      print(f"  {self.error_count:>4}  errors")
+    if self.count_of__error:
+      print(f"  {self.count_of__error:>4}  errors")
     if self.preview:
       print("preview only: nothing was changed.")
-    return 1 if self.error_count else 0
+    return 1 if self.count_of__error else 0
 
 
 def act(log ,preview ,subject ,function ,*argument):
@@ -107,8 +107,8 @@ def tree_dir__problem(tree_dir):
   <storage root>/home/Account-Tree; every storage keeps the same layout.
   """
   path = Path(tree_dir)
-  if path.name != TREE_DIR__NAME or path.parent.name != "home":
-    return f"{tree_dir} is not a tree dir; a tree dir is <storage root>/home/{TREE_DIR__NAME}, such as /home/{TREE_DIR__NAME}"
+  if path.name != DIRN__TREE or path.parent.name != "home":
+    return f"{tree_dir} is not a tree dir; a tree dir is <storage root>/home/{DIRN__TREE}, such as /home/{DIRN__TREE}"
   return None
 
 def delete_mount_point(target ,log ,preview):
@@ -119,13 +119,13 @@ def delete_mount_point(target ,log ,preview):
   """
   if not target.exists():
     return
-  if preview and kernel.is__mount_point(target):
+  if preview and Kernel.is__mount_point(target):
     log.line("deleted" ,str(target) ,"mount point, once unmounted, if attach made it")
     return
   st = target.lstat()
-  if kernel.is__mount_point(target) or not target.is_dir() or st.st_uid != 0 or (st.st_mode & 0o7777) != 0 or any(target.iterdir()):
+  if Kernel.is__mount_point(target) or not target.is_dir() or st.st_uid != 0 or (st.st_mode & 0o7777) != 0 or any(target.iterdir()):
     log.line("kept" ,str(target) ,"not an empty mount point made by attach")
     return
-  if not act(log ,preview ,str(target) ,kernel.immutable__set ,target ,False): return
+  if not act(log ,preview ,str(target) ,Kernel.immutable__set ,target ,False): return
   if not act(log ,preview ,str(target) ,target.rmdir): return
   log.line("deleted" ,str(target) ,"mount point")

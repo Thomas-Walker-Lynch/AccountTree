@@ -35,7 +35,7 @@ source_dir(){
 }
 
 # the files to install, relative to the source dir, one per line
-file__list(){
+list__file(){
   ( cd "$1" && find . -name __pycache__ -prune -o -type f -print | sed 's|^\./||' | sort )
 }
 
@@ -46,7 +46,7 @@ file_mode(){
 
 install_tree(){
   local preview=$1 source=$2
-  local count__new=0 count__replaced=0 count__deleted=0 count__unchanged=0
+  local count_of__new=0 count_of__replaced=0 count_of__deleted=0 count_of__unchanged=0
   local verb__made=made verb__new=installed verb__replaced=replaced verb__deleted=deleted
   if [ "$preview" = yes ]; then
     verb__made="would make" verb__new="would install" verb__replaced="would replace" verb__deleted="would delete"
@@ -61,30 +61,30 @@ install_tree(){
   while IFS= read -r f; do
     mode=$(file_mode "$source/$f")
     if [ ! -e "$INSTALL_DIR/$f" ]; then
-      printf '  %-16s%s\n' "$verb__new" "$f"; count__new=$((count__new + 1))
+      printf '  %-16s%s\n' "$verb__new" "$f"; count_of__new=$((count_of__new + 1))
     elif ! cmp -s "$source/$f" "$INSTALL_DIR/$f" || [ "$(stat -c %a "$INSTALL_DIR/$f")" != "${mode#0}" ] \
          || [ "$(stat -c %u:%g "$INSTALL_DIR/$f")" != 0:0 ]; then
-      printf '  %-16s%s\n' "$verb__replaced" "$f"; count__replaced=$((count__replaced + 1))
+      printf '  %-16s%s\n' "$verb__replaced" "$f"; count_of__replaced=$((count_of__replaced + 1))
     else
-      count__unchanged=$((count__unchanged + 1)); continue
+      count_of__unchanged=$((count_of__unchanged + 1)); continue
     fi
     if [ "$preview" != yes ]; then
       install -D -o root -g root -m "$mode" "$source/$f" "$INSTALL_DIR/$f" || return 1
     fi
-  done < <(file__list "$source")
+  done < <(list__file "$source")
 
   # files the consumer directory no longer has
   [ -d "$INSTALL_DIR" ] && while IFS= read -r f; do
     if [ ! -e "$source/$f" ]; then
-      printf '  %-16s%s\n' "$verb__deleted" "$f"; count__deleted=$((count__deleted + 1))
+      printf '  %-16s%s\n' "$verb__deleted" "$f"; count_of__deleted=$((count_of__deleted + 1))
       [ "$preview" = yes ] || rm -f -- "$INSTALL_DIR/$f" || return 1
     fi
-  done < <(file__list "$INSTALL_DIR")
+  done < <(list__file "$INSTALL_DIR")
   [ "$preview" = yes ] || find "$INSTALL_DIR" -mindepth 1 -type d -empty -delete
 
   echo "summary:"
-  printf '  %4d  %s\n' "$count__new" "$verb__new" "$count__replaced" "$verb__replaced" \
-         "$count__deleted" "$verb__deleted" "$count__unchanged" "unchanged"
+  printf '  %4d  %s\n' "$count_of__new" "$verb__new" "$count_of__replaced" "$verb__replaced" \
+         "$count_of__deleted" "$verb__deleted" "$count_of__unchanged" "unchanged"
 }
 
 CLI(){

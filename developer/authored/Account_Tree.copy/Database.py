@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-database - the two kinds of Account-Tree database
+Database - the two kinds of Account-Tree database
 
   storage database   <tree dir>/database.sqlite3, identified by its database uuid.
                      The tree dir is <storage root>/home/Account-Tree, so on the
@@ -34,14 +34,14 @@ def genesis_hash(kind ,uuid_text) -> str:
   kind and the uuid it was made with, so no two databases' chains can
   coincide, and a record cannot be moved from one database into another.
   """
-  return hashlib.sha256(f"AccountTree {kind} {uuid_text}".encode("utf-8")).hexdigest()
+  return hashlib.sha256(f"Account-Tree {kind} {uuid_text}".encode("utf-8")).hexdigest()
 
-HERE = Path(__file__).resolve().parent
+DIRPA__HERE = Path(__file__).resolve().parent
 
 # kind: (schema file, name of the identity column)
 KIND = {
-  "storage": (HERE / "schema_storage.sql" ,"database_uuid"),
-  "system": (HERE / "schema_system.sql" ,"system_uuid"),
+  "storage": (DIRPA__HERE / "schema_storage.sql" ,"database_uuid"),
+  "system": (DIRPA__HERE / "schema_system.sql" ,"system_uuid"),
 }
 
 # Tables added to a kind's schema after databases of that kind were first made.
@@ -62,17 +62,17 @@ def schema_added__text(kind) -> str:
   body = tail if end == -1 else tail[:end]
   return "\n".join(line for line in body.splitlines() if not line.startswith("--"))
 
-SYSTEM_DIR = Path("/var/lib/Account-Tree")
-SYSTEM_DATABASE__PATH = SYSTEM_DIR / "system.sqlite3"
+DIRPA__SYSTEM = Path("/var/lib/Account-Tree")
+FPA__SYSTEM_DATABASE = DIRPA__SYSTEM / "system.sqlite3"
 
 
 def now() -> str:
   return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
-def storage_database__path(tree_dir) -> Path:
+def fpa__storage_database(tree_dir) -> Path:
   return Path(tree_dir) / "database.sqlite3"
 
-def account_data__dir(tree_dir) -> Path:
+def dirp__account_data(tree_dir) -> Path:
   return Path(tree_dir) / "account-data"
 
 def transaction_hash(previous_hash ,series ,description ,change_text ,nonce) -> str:
@@ -105,7 +105,7 @@ class Database:
     self.connection = connection
     self.path = path
     self.kind = kind
-    self.schema_path ,self.uuid_column = KIND[kind]
+    self.fpa__schema ,self.uuid_column = KIND[kind]
 
   # ------------------------------------------------------------------------------
   # opening
@@ -141,7 +141,7 @@ class Database:
       os.chmod(path ,0o600)
     connection.row_factory = sqlite3.Row
     database = cls(connection ,path ,kind)
-    connection.executescript(database.schema_path.read_text(encoding="utf-8"))
+    connection.executescript(database.fpa__schema.read_text(encoding="utf-8"))
     uuid_text = str(uuid4())
     connection.execute("BEGIN")
     connection.execute(
@@ -275,7 +275,7 @@ class Database:
     series and head, which the chain bookkeeping sets.
     """
     replay = sqlite3.connect(":memory:")
-    replay.executescript(self.schema_path.read_text(encoding="utf-8"))
+    replay.executescript(self.fpa__schema.read_text(encoding="utf-8"))
     identity = self.identity()
     genesis_uuid = identity["genesis_uuid"]
     replay.execute(f"INSERT INTO identity({self.uuid_column} ,genesis_uuid ,series ,head_hash ,created) VALUES (? ,? ,0 ,? ,?)",
@@ -287,17 +287,17 @@ class Database:
     except sqlite3.Error as error:
       return [f"replaying the record failed: {error}"]
     problem = []
-    table__list = [r[0] for r in replay.execute(
+    list__table = [r[0] for r in replay.execute(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT IN ('identity' ,'transaction_log')"
       " AND name NOT LIKE 'sqlite_%' ORDER BY name")]
-    for table in table__list:
+    for table in list__table:
       here = sorted((tuple(r) for r in self.connection.execute(f"SELECT * FROM {table}")) ,key=repr)
       there = sorted((tuple(r) for r in replay.execute(f"SELECT * FROM {table}")) ,key=repr)
       if here != there:
         problem.append(f"table {table} differs from the replay of the record")
     # every column of identity but series and head_hash, which the chain sets
-    column__list = [c[1] for c in replay.execute("PRAGMA table_info(identity)") if c[1] not in ("series" ,"head_hash")]
-    column = "SELECT " + " ,".join(column__list) + " FROM identity"
+    list__column = [c[1] for c in replay.execute("PRAGMA table_info(identity)") if c[1] not in ("series" ,"head_hash")]
+    column = "SELECT " + " ,".join(list__column) + " FROM identity"
     if tuple(self.connection.execute(column).fetchone()) != tuple(replay.execute(column).fetchone()):
       problem.append("table identity differs from the replay of the record")
     return problem

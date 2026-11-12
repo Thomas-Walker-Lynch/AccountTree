@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-accounts_service - whether an account is offered on the login screen
+AccountsService - whether an account is offered on the login screen
 
 GDM, and the other login screens that use AccountsService, list the accounts
 AccountsService reports. AccountsService keeps a file for each account it
@@ -24,7 +24,7 @@ both are looked for.
 import os
 from pathlib import Path
 
-DIRECTORY__LIST = (Path("/var/lib/AccountsService/users") ,Path("/var/lib/accountsservice/users"))
+LIST__DIRECTORY = (Path("/var/lib/AccountsService/users") ,Path("/var/lib/accountsservice/users"))
 SECTION = "[User]"
 KEY = "SystemAccount"
 
@@ -33,12 +33,12 @@ class AccountsServiceError(Exception):
   pass
 
 
-def user_directory():
+def dirp__user():
   """
   The directory AccountsService keeps its account files in, or None when this
   system has no AccountsService.
   """
-  for d in DIRECTORY__LIST:
+  for d in LIST__DIRECTORY:
     if d.is_dir():
       return d
   return None
@@ -49,9 +49,9 @@ def text_with_key(text ,hidden):
   line kept. A file without a [User] section gets one.
   """
   value = "true" if hidden else "false"
-  line__list = text.splitlines()
+  list__line = text.splitlines()
   result ,in_user ,done = [] ,False ,False
-  for line in line__list:
+  for line in list__line:
     stripped = line.strip()
     if stripped.startswith("[") and stripped.endswith("]"):
       if in_user and not done:
@@ -67,7 +67,7 @@ def text_with_key(text ,hidden):
       continue
     result.append(line)
   if not done:
-    if not any(l.strip() == SECTION for l in line__list):
+    if not any(l.strip() == SECTION for l in list__line):
       if result and result[-1].strip(): result.append("")
       result.append(SECTION)
     result.append(f"{KEY}={value}")
@@ -78,7 +78,7 @@ def is__hidden__set(name ,hidden):
   Set SystemAccount=true (hidden) or false for the account. Returns whether
   the file changed, or None on a system without AccountsService.
   """
-  d = user_directory()
+  d = dirp__user()
   if d is None:
     return None
   path = d / name

@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-system - the work functions for the system database
+System - the work functions for the system database
 
 The system database, /var/lib/Account-Tree/system.sqlite3, is this system's own
 record: its system uuid, the range of system uids Account-Tree gives out, the
@@ -12,10 +12,9 @@ child accounts each system account may have.
 import os
 from pathlib import Path
 
-import database
-from database import Database
-from common import host_name ,act
-from system_account import system_account ,system_account__by_system_uid
+import Database
+from Common import host_name ,act
+from SystemAccount import system_account ,system_account__by_system_uid
 
 DEFAULT__SYSTEM_UID__FIRST = 2000
 DEFAULT__SYSTEM_UID__LAST = 59999
@@ -27,27 +26,27 @@ def open_system_database(log):
   """
   This system's database, or None with an error logged when there is none.
   """
-  if not database.SYSTEM_DATABASE__PATH.is_file():
-    log.error("system" ,f"no system database at {database.SYSTEM_DATABASE__PATH}; run 'system make' first")
+  if not Database.FPA__SYSTEM_DATABASE.is_file():
+    log.error("system" ,f"no system database at {Database.FPA__SYSTEM_DATABASE}; run 'system make' first")
     return None
-  return Database.open(database.SYSTEM_DATABASE__PATH ,"system")
+  return Database.Database.open(Database.FPA__SYSTEM_DATABASE ,"system")
 
 
 def system__make(system_uid__first ,system_uid__last ,log ,preview):
-  path = database.SYSTEM_DATABASE__PATH
+  path = Database.FPA__SYSTEM_DATABASE
   if system_uid__last >= DATABASE_UID__FLOOR:
     log.error("system uid range" ,f"the range reaches {DATABASE_UID__FLOOR}, where database uids begin"); return
   if system_uid__first > system_uid__last:
     log.error("system uid range" ,f"{system_uid__first} is above {system_uid__last}"); return
   if path.exists():
-    db = Database.open(path ,"system")
+    db = Database.Database.open(path ,"system")
     log.line("kept" ,str(path) ,f"a system database exists, system uuid {db.uuid()}")
     return
-  if not database.SYSTEM_DIR.is_dir():
-    if not act(log ,preview ,str(database.SYSTEM_DIR) ,os.makedirs ,database.SYSTEM_DIR ,0o700): return
-    if not act(log ,preview ,str(database.SYSTEM_DIR) ,os.chmod ,database.SYSTEM_DIR ,0o700): return
-    log.line("made" ,str(database.SYSTEM_DIR) ,"root only, mode 0700")
-  db = Database.make(path ,"system" ,preview)
+  if not Database.DIRPA__SYSTEM.is_dir():
+    if not act(log ,preview ,str(Database.DIRPA__SYSTEM) ,os.makedirs ,Database.DIRPA__SYSTEM ,0o700): return
+    if not act(log ,preview ,str(Database.DIRPA__SYSTEM) ,os.chmod ,Database.DIRPA__SYSTEM ,0o700): return
+    log.line("made" ,str(Database.DIRPA__SYSTEM) ,"root only, mode 0700")
+  db = Database.Database.make(path ,"system" ,preview)
   with db.transaction("set system uid range" ,preview) as t:
     t.execute("INSERT INTO system_uid__range(first ,last) VALUES (? ,?)" ,(system_uid__first ,system_uid__last))
   # a system uuid is drawn at random; the one drawn in a preview is thrown away
@@ -55,8 +54,8 @@ def system__make(system_uid__first ,system_uid__last ,log ,preview):
   log.line("recorded" ,"system uid range" ,f"{system_uid__first} to {system_uid__last}")
 
 def system__show():
-  path = database.SYSTEM_DATABASE__PATH
-  db = Database.open(path ,"system")
+  path = Database.FPA__SYSTEM_DATABASE
+  db = Database.Database.open(path ,"system")
   d = db.identity()
   r = db.row("SELECT * FROM system_uid__range")
   print(f"system    {host_name()}  system uuid {d['system_uuid']}")
@@ -102,10 +101,10 @@ def system__delete(log ,preview):
   use: those system accounts would be left with no record, and their system
   uids could be given out again.
   """
-  path = database.SYSTEM_DATABASE__PATH
+  path = Database.FPA__SYSTEM_DATABASE
   if not path.exists():
     log.line("kept" ,str(path) ,"no system database here; nothing to delete"); return
-  db = Database.open(path ,"system")
+  db = Database.Database.open(path ,"system")
   in_use = db.rows("SELECT * FROM system_map WHERE state = 'in use' ORDER BY system_account__name")
   if in_use:
     for m in in_use:

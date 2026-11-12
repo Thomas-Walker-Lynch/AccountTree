@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-resource_kind - the kinds of resource an account can be allocated
+ResourceKind - the kinds of resource an account can be allocated
 
 Each resource kind is listed once here. The window builds its Allocate
 panel from this list, so a kind that is listed but has no allocator yet
@@ -35,7 +35,7 @@ GROUP_TITLE = {
   "privilege": "Privileges",
 }
 
-KIND__LIST = [
+LIST__KIND = [
   ResourceKind("child account" ,"account",
     "a new account below this one; it opens its own resource window"),
   ResourceKind("capture account" ,"account",
@@ -73,8 +73,8 @@ KIND__LIST = [
 ]
 
 
-def kind__list__by_group():
+def list__kind__by_group():
   result = []
   for group in GROUP_ORDER:
-    result.append((group ,[k for k in KIND__LIST if k.group == group]))
+    result.append((group ,[k for k in LIST__KIND if k.group == group]))
   return result

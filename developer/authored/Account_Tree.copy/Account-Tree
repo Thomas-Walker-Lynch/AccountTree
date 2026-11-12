@@ -23,8 +23,8 @@ Usage: Account-Tree <command> [argument ...]
 import sys ,os
 sys.path.insert(0 ,os.path.dirname(os.path.realpath(__file__)))
 
-import account_tree
-import resource_kind
+import AccountTree
+import ResourceKind
 
 
 def print_help():
@@ -36,8 +36,8 @@ def account_argument(rest ,command):
     print(f"Error: {command} is given at most one account name." ,file=sys.stderr)
     return None
   if not rest:
-    return account_tree.acting_account()
-  entry = account_tree.account(rest[0])
+    return AccountTree.acting_account()
+  entry = AccountTree.account(rest[0])
   if entry is None:
     print(f"Error: there is no system account named '{rest[0]}'." ,file=sys.stderr)
   return entry
@@ -45,13 +45,13 @@ def account_argument(rest ,command):
 def command__window(rest):
   entry = account_argument(rest ,"window")
   if entry is None: return 1
-  import window
-  return window.run(entry ,account_tree.acting_account())
+  import Window
+  return Window.run(entry ,AccountTree.acting_account())
 
 def command__list(rest):
   entry = account_argument(rest ,"list")
   if entry is None: return 1
-  for child in account_tree.child_account__list(entry.name):
+  for child in AccountTree.list__child_account(entry.name):
     print(f"{child.name:<28}{child.uid:>7}  {child.home}")
   return 0
 
@@ -59,9 +59,9 @@ def command__resource(rest):
   if rest:
     print("Error: resource is given no arguments." ,file=sys.stderr)
     return 1
-  for group ,kind__list in resource_kind.kind__list__by_group():
-    print(resource_kind.GROUP_TITLE[group])
-    for kind in kind__list:
+  for group ,list__kind in ResourceKind.list__kind__by_group():
+    print(ResourceKind.GROUP_TITLE[group])
+    for kind in list__kind:
       state = "allocator" if kind.implemented else "not written"
       print(f"  {kind.name:<20}{state:<13}{kind.description}")
   return 0

@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-account_tree - the system accounts as a tree, read from their names
+AccountTree - the system accounts as a tree, read from their names
 
 root is at the top of the tree, and a login account is a child of root. Every
 account is entered through its parent: root enters a login account through
@@ -24,9 +24,9 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
-import system_account as sa
-import kernel
-from kernel import KernelError
+import SystemAccount as sa
+import Kernel
+from Kernel import KernelError
 
 SEPARATOR = "·"
 OLD_SEPARATOR = "_"
@@ -75,12 +75,12 @@ def split_name(name: str) -> tuple[str ,str]:
     return tuple(name.rsplit(OLD_SEPARATOR ,1))
   return ("root" ,name)
 
-def child_account__list(parent: str) -> list[Account]:
+def list__child_account(parent: str) -> list[Account]:
   """
   The child accounts of parent.
   """
   result = []
-  for entry in sa.system_account__list():
+  for entry in sa.list__system_account():
     if not is__person_account(entry):
       continue
     if entry.pw_name != parent and split_name(entry.pw_name)[0] == parent:
@@ -111,25 +111,25 @@ STATE__IN_SESSION = "in session"
 STATE__IDLE = "idle"
 STATE__OFFLINE = "offline"
 
-def session__system_uid__set() -> set[int]:
+def set__session__system_uid() -> set[int]:
   """
   The system uids that have at least one session, as systemd-logind counts
   them: a desktop login, a console login, or a machinectl shell. Empty when
   the sessions cannot be read.
   """
   try:
-    return kernel.session__system_uid__set()
+    return Kernel.set__session__system_uid()
   except KernelError:
     return set()
 
-def state(entry: Account ,session__set: set[int]) -> str:
+def state(entry: Account ,set__session: set[int]) -> str:
   """
   in session   the account has a session
   idle         no session, and its home is here
   offline      no session, and its home is not here: it is kept on a storage
                that is not attached
   """
-  if entry.uid in session__set:
+  if entry.uid in set__session:
     return STATE__IN_SESSION
   if not entry.home_exists:
     return STATE__OFFLINE

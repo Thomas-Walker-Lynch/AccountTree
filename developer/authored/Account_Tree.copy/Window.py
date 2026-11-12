@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-window - the Account-Tree resource window
+Window - the Account-Tree resource window
 
 One window shows the resources of one account, the window account, and acts
 with the authority of another, the acting account: the account of the person
@@ -16,9 +16,9 @@ The window is drawn with GTK 4, the toolkit of the desktop's own programs,
 so it opens on Wayland directly, or on X when that is what the session has.
 """
 
-import account_tree
-import authority
-import resource_kind
+import AccountTree
+import Authority
+import ResourceKind
 
 GTK__MISSING = """\
 Account-Tree window: GTK 4 for Python is not available to {python}
@@ -115,9 +115,9 @@ def build_window_class(Gtk ,GLib):
         button.connect("clicked" ,lambda b: action())
       return button
 
-    def row(self ,widget__list):
+    def row(self ,list__widget):
       box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL ,spacing=PAD)
-      for widget in widget__list:
+      for widget in list__widget:
         widget.set_hexpand(True)
         box.append(widget)
       return box
@@ -145,7 +145,7 @@ def build_window_class(Gtk ,GLib):
       super().__init__(transient_for=parent)
       self.window_account = window_account
       self.acting_account = acting_account
-      title = resource_kind.GROUP_TITLE[group]
+      title = ResourceKind.GROUP_TITLE[group]
       self.set_title(f"Account-Tree: {window_account.name}: allocate {title}")
 
       box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL ,spacing=PAD,
@@ -156,8 +156,8 @@ def build_window_class(Gtk ,GLib):
 
       frame ,panel = self.panel(f"Allocate {title}")
       grid = Gtk.Grid(column_spacing=PAD*2 ,row_spacing=PAD)
-      kind__list = dict(resource_kind.kind__list__by_group())[group]
-      for i ,kind in enumerate(kind__list):
+      list__kind = dict(ResourceKind.list__kind__by_group())[group]
+      for i ,kind in enumerate(list__kind):
         action = None
         if kind.implemented:
           action = lambda k=kind: k.allocator(self.window_account ,self.acting_account)
@@ -209,7 +209,7 @@ def build_window_class(Gtk ,GLib):
     def panel__identity(self):
       frame ,box = self.panel("Account")
       name = self.window_account.name
-      parent = account_tree.parent_of(name)
+      parent = AccountTree.parent_of(name)
       box.append(self.label(f"<big><b>{escape(name)}</b></big>" ,markup=True))
       if not parent:
         relation = "root, at the top of the account tree"
@@ -228,9 +228,9 @@ def build_window_class(Gtk ,GLib):
       allocating resources of that group.
       """
       frame ,box = self.panel("Allocate")
-      for group ,kind__list in resource_kind.kind__list__by_group():
-        button = Gtk.Button(label=resource_kind.GROUP_TITLE[group])
-        button.set_tooltip_text(", ".join(kind.name for kind in kind__list))
+      for group ,list__kind in ResourceKind.list__kind__by_group():
+        button = Gtk.Button(label=ResourceKind.GROUP_TITLE[group])
+        button.set_tooltip_text(", ".join(kind.name for kind in list__kind))
         button.connect("clicked" ,lambda b ,g=group: self.open_allocate(g))
         box.append(button)
       return frame
@@ -243,15 +243,15 @@ def build_window_class(Gtk ,GLib):
       reopening the window.
       """
       frame ,box = self.panel("Child account")
-      child__list = account_tree.child_account__list(self.window_account.name)
-      if not child__list:
+      list__child = AccountTree.list__child_account(self.window_account.name)
+      if not list__child:
         box.append(self.label("(none)" ,dim=True))
         return frame
       grid = Gtk.Grid(column_spacing=PAD*2 ,row_spacing=PAD)
       self.child_state__label = []
-      session__set = account_tree.session__system_uid__set()
-      for i ,child in enumerate(child__list):
-        button = Gtk.Button(label=account_tree.short_name(child.name))
+      set__session = AccountTree.set__session__system_uid()
+      for i ,child in enumerate(list__child):
+        button = Gtk.Button(label=AccountTree.short_name(child.name))
         button.get_child().set_xalign(0)
         button.set_hexpand(True)
         button.set_tooltip_text(
@@ -259,7 +259,7 @@ def build_window_class(Gtk ,GLib):
           f"acting with the authority of {self.acting_account.name}")
         button.connect("clicked" ,lambda b ,c=child: self.open_child_account(c))
         grid.attach(button ,0 ,i ,1 ,1)
-        state = self.label(account_tree.state(child ,session__set))
+        state = self.label(AccountTree.state(child ,set__session))
         grid.attach(state ,1 ,i ,1 ,1)
         self.child_state__label.append((child ,state))
       box.append(grid)
@@ -267,9 +267,9 @@ def build_window_class(Gtk ,GLib):
       return frame
 
     def refresh_child_state(self):
-      session__set = account_tree.session__system_uid__set()
+      set__session = AccountTree.set__session__system_uid()
       for child ,label in self.child_state__label:
-        label.set_text(account_tree.state(child ,session__set))
+        label.set_text(AccountTree.state(child ,set__session))
       return self.get_visible()       # False stops the timer once the window is closed
 
     def panel__allocated(self):
@@ -305,7 +305,7 @@ def build_window_class(Gtk ,GLib):
       frame ,box = self.panel("Authority")
       acting = self.acting_account
       box.append(self.label(f"acting account   {acting.name}   (system uid {acting.uid})"))
-      decision = authority.request(acting.name ,"view" ,self.window_account.name)
+      decision = Authority.request(acting.name ,"view" ,self.window_account.name)
       box.append(self.label(f"authority   {decision.reason}" ,dim=True))
       return frame
 

@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-authority - the one place that answers "may this account do this?"
+Authority - the one place that answers "may this account do this?"
 
 Every change Account-Tree makes is first put to the authority as a request:
 the acting account, the action, the target account, and the resource. Today there is

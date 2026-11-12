@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-system_account - reading and changing the accounts of this system
+SystemAccount - reading and changing the accounts of this system
 
 Reading is done directly, through the C library's account functions, which
 Python's pwd and grp modules call. Changing accounts is, for now, done by the
@@ -16,7 +16,7 @@ renaming it into place, so that a reader never sees a file half written.
 import pwd ,grp ,subprocess
 from pathlib import Path
 
-HOME = Path("/home")
+DIRPA__HOME = Path("/home")
 
 
 class SystemAccountError(Exception):
@@ -38,7 +38,7 @@ def system_account__by_system_uid(system_uid):
   except KeyError:
     return None
 
-def system_account__list():
+def list__system_account():
   return sorted(pwd.getpwall() ,key=lambda e: e.pw_name)
 
 def system_group(name):
@@ -87,7 +87,7 @@ def system_account__make(name ,system_uid):
   In the future this will be a direct function call: lines added to
   /etc/passwd, /etc/shadow, /etc/group and /etc/gshadow under lckpwdf.
   """
-  run_shadow(["useradd" ,"--badname" ,"-M" ,"-d" ,str(HOME / name) ,"-s" ,"/bin/bash",
+  run_shadow(["useradd" ,"--badname" ,"-M" ,"-d" ,str(DIRPA__HOME / name) ,"-s" ,"/bin/bash",
               "-u" ,str(system_uid) ,"-U" ,name])
 
 def system_account__delete(name):

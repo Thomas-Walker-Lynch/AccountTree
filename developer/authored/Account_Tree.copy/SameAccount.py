@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8; python-indent-offset: 2; indent-tabs-mode: nil -*-
 """
-same_account - the work functions that say which accounts are the same account
+SameAccount - the work functions that say which accounts are the same account
 
 An account specifier names an account in one place:
 
@@ -17,12 +17,11 @@ only that this system has seen it.
 
 import os
 
-import database
-from database import Database
-import kernel
-from common import HOME ,act ,host_name ,valid_name ,tree_dir__problem ,delete_mount_point
-from system import open_system_database
-import system_account as sa
+import Database
+import Kernel
+from Common import DIRPA__HOME ,act ,host_name ,valid_name ,tree_dir__problem ,delete_mount_point
+from System import open_system_database
+import SystemAccount as sa
 
 
 # --------------------------------------------------------------------------------
@@ -41,7 +40,7 @@ def open_sides(system_spec ,storage_spec ,log):
   problem = tree_dir__problem(storage_spec["tree_dir"])
   if problem:
     log.error(storage_spec["tree_dir"] ,problem); return None
-  storage_db = Database.open(database.storage_database__path(storage_spec["tree_dir"]) ,"storage")
+  storage_db = Database.Database.open(Database.fpa__storage_database(storage_spec["tree_dir"]) ,"storage")
   return system_db ,storage_db
 
 def mount_target(row):
@@ -49,7 +48,7 @@ def mount_target(row):
   Where the home of the system account in a system map row is mounted:
   /home/<system account>, which the system account's home in /etc/passwd must be.
   """
-  return HOME / row["system_account__name"] ,sa.system_account__by_system_uid(row["system_uid"])
+  return DIRPA__HOME / row["system_account__name"] ,sa.system_account__by_system_uid(row["system_uid"])
 
 def is__mounted_from(target ,source):
   """
@@ -60,7 +59,7 @@ def is__mounted_from(target ,source):
     a ,b = os.stat(target) ,os.stat(source)
   except OSError:
     return False
-  return kernel.is__mount_point(target) and (a.st_dev ,a.st_ino) == (b.st_dev ,b.st_ino)
+  return Kernel.is__mount_point(target) and (a.st_dev ,a.st_ino) == (b.st_dev ,b.st_ino)
 
 def head_seen__record(system_db ,storage_db ,event ,continuity ,preview):
   """
@@ -69,14 +68,14 @@ def head_seen__record(system_db ,storage_db ,event ,continuity ,preview):
   series ,head_hash = storage_db.head()
   with system_db.transaction(f"{event} database {storage_db.short()} at series {series}" ,preview) as t:
     t.execute("INSERT INTO storage_head__seen(database_uuid ,series ,head_hash ,event ,continuity ,seen)"
-              " VALUES (? ,? ,? ,? ,? ,?)" ,(storage_db.uuid() ,series ,head_hash ,event ,continuity ,database.now()))
+              " VALUES (? ,? ,? ,? ,? ,?)" ,(storage_db.uuid() ,series ,head_hash ,event ,continuity ,Database.now()))
   return series
 
 def system_seen__record(storage_db ,system_uuid ,log ,preview):
   """
   Record in the storage database that this system has seen it now.
   """
-  stamp = database.now()
+  stamp = Database.now()
   if storage_db.row("SELECT 1 FROM system_seen WHERE system_uuid = ?" ,(system_uuid,)):
     with storage_db.transaction(f"seen by system {system_uuid[:8]}" ,preview) as t:
       t.execute("UPDATE system_seen SET last = ? WHERE system_uuid = ?" ,(stamp ,system_uuid))
@@ -124,7 +123,7 @@ def same_account__map(system_db ,storage_db ,system_account__name ,storage_accou
     taken = system_db.row("SELECT * FROM system_map WHERE system_uid = ? AND state = 'in use'" ,(entry.pw_uid,))
     if taken:
       log.error(system_account__name ,f"already the same account as database uid {taken['database_uid']} of database {taken['database_uuid'][:8]}"); return False
-    if entry.pw_dir != str(HOME / system_account__name):
+    if entry.pw_dir != str(DIRPA__HOME / system_account__name):
       log.error(system_account__name ,f"its home is {entry.pw_dir}; Account-Tree mounts a home only at /home/<system account>"); return False
     system_uid ,system_gid ,origin = entry.pw_uid ,entry.pw_gid ,"adopted"
     log.line("adopted" ,system_account__name ,f"existing system account, system uid {system_uid}")
@@ -134,8 +133,8 @@ def same_account__map(system_db ,storage_db ,system_account__name ,storage_accou
     problem = valid_name(system_account__name)
     if problem:
       log.error(system_account__name ,problem); return False
-    home = HOME / system_account__name
-    if kernel.is__mount_point(home) or (home.exists() and (not home.is_dir() or any(home.iterdir()))):
+    home = DIRPA__HOME / system_account__name
+    if Kernel.is__mount_point(home) or (home.exists() and (not home.is_dir() or any(home.iterdir()))):
       log.error(str(home) ,"already holds something; a system account made here would take it as its home"); return False
     system_uid = free__system_uid(system_db)
     if system_uid is None:
@@ -150,7 +149,7 @@ def same_account__map(system_db ,storage_db ,system_account__name ,storage_accou
                              f" of database {storage_db.short()}" ,preview) as t:
     t.execute("INSERT INTO system_map(system_uid ,system_gid ,system_account__name ,database_uuid ,database_uid"
               " ,origin ,state ,mapped) VALUES (? ,? ,? ,? ,? ,? ,'in use' ,?)",
-              (system_uid ,system_gid ,system_account__name ,database_uuid ,storage_account["database_uid"] ,origin ,database.now()))
+              (system_uid ,system_gid ,system_account__name ,database_uuid ,storage_account["database_uid"] ,origin ,Database.now()))
   head_seen__record(system_db ,storage_db ,"mapped" ,None ,preview)
   log.line("mapped" ,f"{system_account__name} is {storage_account__name}",
            f"system uid {system_uid} is database uid {storage_account['database_uid']} of database {storage_db.short()}")
@@ -187,7 +186,7 @@ def is__not_same_account(system_spec ,storage_spec ,log ,preview):
     log.line("kept" ,storage_account__name ,"not the same account as any system account here; nothing to undo"); return
   if row["system_account__name"] != system_account__name:
     log.error(storage_account__name ,f"is the same account as {row['system_account__name']}, not {system_account__name}"); return
-  if row["system_uid"] in kernel.session__system_uid__set():
+  if row["system_uid"] in Kernel.set__session__system_uid():
     log.error(system_account__name ,"has a login session; nothing was changed"); return
   same_account__end(row ,system_db ,storage_spec["tree_dir"] ,storage_account__name ,log ,preview)
 
@@ -199,9 +198,9 @@ def same_account__end(row ,system_db ,tree_dir ,storage_account__name ,log ,prev
   """
   name = row["system_account__name"]
   target ,entry = mount_target(row)
-  source = database.account_data__dir(tree_dir) / storage_account__name
+  source = Database.dirp__account_data(tree_dir) / storage_account__name
   if is__mounted_from(target ,source):
-    if not act(log ,preview ,str(target) ,kernel.home__unmount ,target):
+    if not act(log ,preview ,str(target) ,Kernel.home__unmount ,target):
       log.line("stopped" ,name ,"the home could not be unmounted; nothing further was changed")
       return False
     log.line("unmounted" ,str(target))
@@ -218,7 +217,7 @@ def same_account__end(row ,system_db ,tree_dir ,storage_account__name ,log ,prev
     log.line("kept" ,f"system account {name}" ,"it existed before Account-Tree adopted it")
   with system_db.transaction(f"{name} is no longer the same account as database uid {row['database_uid']}"
                              f" of database {row['database_uuid'][:8]}" ,preview) as t:
-    t.execute("UPDATE system_map SET state = 'retired' ,retired = ? WHERE id = ?" ,(database.now() ,row["id"]))
+    t.execute("UPDATE system_map SET state = 'retired' ,retired = ? WHERE id = ?" ,(Database.now() ,row["id"]))
   log.line("retired" ,f"system uid {row['system_uid']}" ,"in the system map; it is not given out again")
   return True
 
@@ -231,10 +230,10 @@ def same_account__show(storage_spec):
   The system accounts that are the same accounts as storage accounts; given a
   storage, its storage accounts that are not, and the login accounts that are not.
   """
-  system_db = Database.open(database.SYSTEM_DATABASE__PATH ,"system")
+  system_db = Database.Database.open(Database.FPA__SYSTEM_DATABASE ,"system")
   storage_db = None
   if storage_spec:
-    storage_db = Database.open(database.storage_database__path(storage_spec["tree_dir"]) ,"storage")
+    storage_db = Database.Database.open(Database.fpa__storage_database(storage_spec["tree_dir"]) ,"storage")
   in_use = system_db.rows("SELECT * FROM system_map WHERE state = 'in use' ORDER BY system_account__name")
   if storage_db:
     in_use = [m for m in in_use if m["database_uuid"] == storage_db.uuid()]
@@ -253,7 +252,7 @@ def same_account__show(storage_spec):
         print(f"  {a['name']}")
   mapped_name = {m["system_account__name"] for m in system_db.rows("SELECT system_account__name FROM system_map WHERE state = 'in use'")}
   print("system accounts of persons here that are not the same account as any storage account")
-  for entry in sa.system_account__list():
+  for entry in sa.list__system_account():
     if sa.system_uid__min() <= entry.pw_uid < 60000 and entry.pw_name not in mapped_name:
       print(f"  {entry.pw_name}")
   return 0
@@ -263,9 +262,9 @@ def same_account__suggest(storage_spec):
   Print is-same-account commands for the storage accounts that are not yet the
   same account as any system account, proposed by matching names. Changes nothing.
   """
-  system_db = Database.open(database.SYSTEM_DATABASE__PATH ,"system")
+  system_db = Database.Database.open(Database.FPA__SYSTEM_DATABASE ,"system")
   tree_dir = storage_spec["tree_dir"]
-  storage_db = Database.open(database.storage_database__path(tree_dir) ,"storage")
+  storage_db = Database.Database.open(Database.fpa__storage_database(tree_dir) ,"storage")
   mapped = {m["database_uid"] for m in system_db.rows(
     "SELECT database_uid FROM system_map WHERE state = 'in use' AND database_uuid = ?" ,(storage_db.uuid(),))}
   taken = {m["system_uid"] for m in system_db.rows("SELECT system_uid FROM system_map WHERE state = 'in use'")}
