@@ -17,20 +17,20 @@
 # Run it under root. Whoever installs code that root runs can act as root, so
 # installing is root's own work.
 
-INSTALL_DIR=/usr/local/lib/Account-Tree
+DIRPA__INSTALL=/usr/local/lib/Account-Tree
 
 usage(){
   cat <<EOF
 Usage: Account-Tree_install <command>
        Account-Tree_install preview <command>
   help | -h | --help    print this message (also printed when given no arguments)
-  run                   install from $(source_dir) into $INSTALL_DIR,
+  run                   install from $(dirpa__source) into $DIRPA__INSTALL,
                         then run Account-Tree_admin system configure
   preview run           print what run would do, change nothing
 EOF
 }
 
-source_dir(){
+dirpa__source(){
   cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd
 }
 
@@ -45,42 +45,42 @@ file_mode(){
 }
 
 install_tree(){
-  local preview=$1 source=$2
+  local preview=$1 dirpa__source=$2
   local count_of__new=0 count_of__replaced=0 count_of__deleted=0 count_of__unchanged=0
   local verb__made=made verb__new=installed verb__replaced=replaced verb__deleted=deleted
   if [ "$preview" = yes ]; then
     verb__made="would make" verb__new="would install" verb__replaced="would replace" verb__deleted="would delete"
   fi
 
-  if [ ! -d "$INSTALL_DIR" ]; then
-    printf '  %-16s%s\n' "$verb__made" "$INSTALL_DIR"
-    [ "$preview" = yes ] || install -d -o root -g root -m 0755 "$INSTALL_DIR" || return 1
+  if [ ! -d "$DIRPA__INSTALL" ]; then
+    printf '  %-16s%s\n' "$verb__made" "$DIRPA__INSTALL"
+    [ "$preview" = yes ] || install -d -o root -g root -m 0755 "$DIRPA__INSTALL" || return 1
   fi
 
   local f mode
   while IFS= read -r f; do
-    mode=$(file_mode "$source/$f")
-    if [ ! -e "$INSTALL_DIR/$f" ]; then
+    mode=$(file_mode "$dirpa__source/$f")
+    if [ ! -e "$DIRPA__INSTALL/$f" ]; then
       printf '  %-16s%s\n' "$verb__new" "$f"; count_of__new=$((count_of__new + 1))
-    elif ! cmp -s "$source/$f" "$INSTALL_DIR/$f" || [ "$(stat -c %a "$INSTALL_DIR/$f")" != "${mode#0}" ] \
-         || [ "$(stat -c %u:%g "$INSTALL_DIR/$f")" != 0:0 ]; then
+    elif ! cmp -s "$dirpa__source/$f" "$DIRPA__INSTALL/$f" || [ "$(stat -c %a "$DIRPA__INSTALL/$f")" != "${mode#0}" ] \
+         || [ "$(stat -c %u:%g "$DIRPA__INSTALL/$f")" != 0:0 ]; then
       printf '  %-16s%s\n' "$verb__replaced" "$f"; count_of__replaced=$((count_of__replaced + 1))
     else
       count_of__unchanged=$((count_of__unchanged + 1)); continue
     fi
     if [ "$preview" != yes ]; then
-      install -D -o root -g root -m "$mode" "$source/$f" "$INSTALL_DIR/$f" || return 1
+      install -D -o root -g root -m "$mode" "$dirpa__source/$f" "$DIRPA__INSTALL/$f" || return 1
     fi
-  done < <(list__file "$source")
+  done < <(list__file "$dirpa__source")
 
   # files the consumer directory no longer has
-  [ -d "$INSTALL_DIR" ] && while IFS= read -r f; do
-    if [ ! -e "$source/$f" ]; then
+  [ -d "$DIRPA__INSTALL" ] && while IFS= read -r f; do
+    if [ ! -e "$dirpa__source/$f" ]; then
       printf '  %-16s%s\n' "$verb__deleted" "$f"; count_of__deleted=$((count_of__deleted + 1))
-      [ "$preview" = yes ] || rm -f -- "$INSTALL_DIR/$f" || return 1
+      [ "$preview" = yes ] || rm -f -- "$DIRPA__INSTALL/$f" || return 1
     fi
-  done < <(list__file "$INSTALL_DIR")
-  [ "$preview" = yes ] || find "$INSTALL_DIR" -mindepth 1 -type d -empty -delete
+  done < <(list__file "$DIRPA__INSTALL")
+  [ "$preview" = yes ] || find "$DIRPA__INSTALL" -mindepth 1 -type d -empty -delete
 
   echo "summary:"
   printf '  %4d  %s\n' "$count_of__new" "$verb__new" "$count_of__replaced" "$verb__replaced" \
@@ -103,26 +103,26 @@ CLI(){
   fi
 
   local source
-  source=$(source_dir) || return 1
-  if [ ! -f "$source/Account-Tree_admin" ]; then
-    echo "Error: $source holds no Account-Tree_admin; run this script from the consumer directory it was promoted to." >&2
+  dirpa__source=$(dirpa__source) || return 1
+  if [ ! -f "$dirpa__source/Account-Tree_admin" ]; then
+    echo "Error: $dirpa__source holds no Account-Tree_admin; run this script from the consumer directory it was promoted to." >&2
     return 1
   fi
-  if [ "$source" = "$INSTALL_DIR" ]; then
+  if [ "$dirpa__source" = "$DIRPA__INSTALL" ]; then
     echo "Error: this is the installed copy; run the Account-Tree_install in the project's consumer directory." >&2
     return 1
   fi
 
   local word=""
   [ "$preview" = yes ] && word="preview "
-  echo "Account-Tree_install ${word}run   from $source to $INSTALL_DIR"
-  install_tree "$preview" "$source" || return 1
+  echo "Account-Tree_install ${word}run   from $dirpa__source to $DIRPA__INSTALL"
+  install_tree "$preview" "$dirpa__source" || return 1
 
   if [ "$preview" = yes ]; then
-    "$INSTALL_DIR/Account-Tree_admin" preview system configure 2>/dev/null \
-      || echo "  would run        $INSTALL_DIR/Account-Tree_admin system configure"
+    "$DIRPA__INSTALL/Account-Tree_admin" preview system configure 2>/dev/null \
+      || echo "  would run        $DIRPA__INSTALL/Account-Tree_admin system configure"
   else
-    "$INSTALL_DIR/Account-Tree_admin" system configure
+    "$DIRPA__INSTALL/Account-Tree_admin" system configure
   fi
 }
 

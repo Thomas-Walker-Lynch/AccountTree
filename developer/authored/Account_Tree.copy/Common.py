@@ -101,31 +101,31 @@ def valid_name(name):
     return f"'{name}' is reserved: /home/{name} holds Account-Tree's own files"
   return None
 
-def tree_dir__problem(tree_dir):
+def dirp__tree__problem(dirp__tree):
   """
-  Why tree_dir is not a tree dir, or None. A tree dir is
+  Why dirp__tree is not a tree dir, or None. A tree dir is
   <storage root>/home/Account-Tree; every storage keeps the same layout.
   """
-  path = Path(tree_dir)
-  if path.name != DIRN__TREE or path.parent.name != "home":
-    return f"{tree_dir} is not a tree dir; a tree dir is <storage root>/home/{DIRN__TREE}, such as /home/{DIRN__TREE}"
+  dirp__candidate = Path(dirp__tree)
+  if dirp__candidate.name != DIRN__TREE or dirp__candidate.parent.name != "home":
+    return f"{dirp__tree} is not a tree dir; a tree dir is <storage root>/home/{DIRN__TREE}, such as /home/{DIRN__TREE}"
   return None
 
-def delete_mount_point(target ,log ,preview):
+def delete_mount_point(dirp__mount_point ,log ,preview):
   """
   Delete a mount point only when it is one attach made: an empty directory
   owned by root, mode 0000. In a preview a home still mounted over it hides
   it, so the real run makes the check.
   """
-  if not target.exists():
+  if not dirp__mount_point.exists():
     return
-  if preview and Kernel.is__mount_point(target):
-    log.line("deleted" ,str(target) ,"mount point, once unmounted, if attach made it")
+  if preview and Kernel.is__mount_point(dirp__mount_point):
+    log.line("deleted" ,str(dirp__mount_point) ,"mount point, once unmounted, if attach made it")
     return
-  st = target.lstat()
-  if Kernel.is__mount_point(target) or not target.is_dir() or st.st_uid != 0 or (st.st_mode & 0o7777) != 0 or any(target.iterdir()):
-    log.line("kept" ,str(target) ,"not an empty mount point made by attach")
+  st = dirp__mount_point.lstat()
+  if Kernel.is__mount_point(dirp__mount_point) or not dirp__mount_point.is_dir() or st.st_uid != 0 or (st.st_mode & 0o7777) != 0 or any(dirp__mount_point.iterdir()):
+    log.line("kept" ,str(dirp__mount_point) ,"not an empty mount point made by attach")
     return
-  if not act(log ,preview ,str(target) ,Kernel.immutable__set ,target ,False): return
-  if not act(log ,preview ,str(target) ,target.rmdir): return
-  log.line("deleted" ,str(target) ,"mount point")
+  if not act(log ,preview ,str(dirp__mount_point) ,Kernel.immutable__set ,dirp__mount_point ,False): return
+  if not act(log ,preview ,str(dirp__mount_point) ,dirp__mount_point.rmdir): return
+  log.line("deleted" ,str(dirp__mount_point) ,"mount point")

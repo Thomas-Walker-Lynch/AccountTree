@@ -95,13 +95,13 @@ def idmap_namespace__fd(database_uid ,system_uid ,system_gid):
     os.close(release__write); os.close(ready__read)
     os.waitpid(pid ,0)
 
-def home__mount(source ,target ,database_uid ,system_uid ,system_gid):
+def home__mount(dirp__source ,dirp__target ,database_uid ,system_uid ,system_gid):
   """
   Mount source at target, nosuid and nodev, translating database_uid to
   system_uid and system_gid unless they are the same.
   """
-  tree_fd = check(LIBC.syscall(SYS_open_tree ,AT_FDCWD ,os.fsencode(str(source)),
-                               OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC) ,f"open_tree {source}")
+  tree_fd = check(LIBC.syscall(SYS_open_tree ,AT_FDCWD ,os.fsencode(str(dirp__source)),
+                               OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC) ,f"open_tree {dirp__source}")
   userns_fd = None
   try:
     attr = MountAttr()
@@ -111,15 +111,15 @@ def home__mount(source ,target ,database_uid ,system_uid ,system_gid):
       attr.attr_set |= MOUNT_ATTR_IDMAP
       attr.userns_fd = userns_fd
     check(LIBC.syscall(SYS_mount_setattr ,tree_fd ,b"" ,AT_EMPTY_PATH ,ctypes.byref(attr),
-                       ctypes.sizeof(attr)) ,f"mount_setattr {source}")
-    check(LIBC.syscall(SYS_move_mount ,tree_fd ,b"" ,AT_FDCWD ,os.fsencode(str(target)),
-                       MOVE_MOUNT_F_EMPTY_PATH) ,f"move_mount {target}")
+                       ctypes.sizeof(attr)) ,f"mount_setattr {dirp__source}")
+    check(LIBC.syscall(SYS_move_mount ,tree_fd ,b"" ,AT_FDCWD ,os.fsencode(str(dirp__target)),
+                       MOVE_MOUNT_F_EMPTY_PATH) ,f"move_mount {dirp__target}")
   finally:
     os.close(tree_fd)
     if userns_fd is not None: os.close(userns_fd)
 
-def home__unmount(target):
-  check(LIBC.umount2(os.fsencode(str(target)) ,0) ,f"umount2 {target}")
+def home__unmount(dirp__target):
+  check(LIBC.umount2(os.fsencode(str(dirp__target)) ,0) ,f"umount2 {dirp__target}")
 
 def list__mount_point():
   """
@@ -134,20 +134,20 @@ def list__mount_point():
       result.append(raw.decode("utf-8" ,"replace"))
   return result
 
-def is__mount_point(path):
-  return os.path.abspath(str(path)) in set(list__mount_point())
+def is__mount_point(dirp__checked):
+  return os.path.abspath(str(dirp__checked)) in set(list__mount_point())
 
 
 # --------------------------------------------------------------------------------
 # files
 
-def immutable__set(path ,on):
+def immutable__set(dirp__flagged ,on):
   """
   Set or clear the immutable flag of a file or directory, as chattr +i and
   chattr -i do: an immutable file cannot be changed, renamed or deleted, even
   by root, until the flag is cleared.
   """
-  fd = os.open(str(path) ,os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
+  fd = os.open(str(dirp__flagged) ,os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
   try:
     buffer = bytearray(struct.pack("i" ,0))
     fcntl.ioctl(fd ,FS_IOC_GETFLAGS ,buffer)

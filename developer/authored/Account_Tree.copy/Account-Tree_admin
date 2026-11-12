@@ -207,7 +207,7 @@ def list__account_specifier(rest):
     if kind == "system":
       result.append({"kind": "system" ,"host": rest[i + 1] ,"account": rest[i + 2]})
     else:
-      result.append({"kind": "storage" ,"tree_dir": rest[i + 1] ,"account": rest[i + 2]})
+      result.append({"kind": "storage" ,"dirp__tree": rest[i + 1] ,"account": rest[i + 2]})
     i += 3
   return result
 
@@ -250,9 +250,9 @@ def CLI(argv=None):
       return Storage.storage__show(rest[0])
     if command == "same-account show" and len(rest) in (0 ,2):
       if rest and rest[0] != "storage": return usage_error(command)
-      return SameAccount.same_account__show({"tree_dir": rest[1]} if rest else None)
+      return SameAccount.same_account__show({"dirp__tree": rest[1]} if rest else None)
     if command == "same-account suggest" and len(rest) == 2 and rest[0] == "storage":
-      return SameAccount.same_account__suggest({"tree_dir": rest[1]})
+      return SameAccount.same_account__suggest({"dirp__tree": rest[1]})
 
     # ---- changes
     if command == "system make" and len(rest) in (0 ,2):
@@ -269,14 +269,14 @@ def CLI(argv=None):
       header(command ,rest[0] ,preview)
       Storage.storage__make(rest[0] ,log ,preview)
     elif command == "storage delete" and rest:
-      (tree_dir,) ,keyword = split_keyword(rest ,1 ,("delete-account-data" ,"forget-other-systems"))
-      header(command ,tree_dir ,preview)
-      Storage.storage__delete(tree_dir ,"delete-account-data" in keyword ,"forget-other-systems" in keyword ,log ,preview)
+      (dirp__tree,) ,keyword = split_keyword(rest ,1 ,("delete-account-data" ,"forget-other-systems"))
+      header(command ,dirp__tree ,preview)
+      Storage.storage__delete(dirp__tree ,"delete-account-data" in keyword ,"forget-other-systems" in keyword ,log ,preview)
     elif command == "account make" and len(rest) >= 2:
-      (tree_dir ,name) ,keyword = split_keyword(rest ,2 ,("make-system-account",) ,("uid" ,"parent"))
+      (dirp__tree ,name) ,keyword = split_keyword(rest ,2 ,("make-system-account",) ,("uid" ,"parent"))
       database_uid = integer(keyword["uid"] ,"uid") if "uid" in keyword else None
-      header(command ,tree_dir ,preview)
-      Storage.account__make(tree_dir ,name ,database_uid ,keyword.get("parent") ,"make-system-account" in keyword ,log ,preview)
+      header(command ,dirp__tree ,preview)
+      Storage.account__make(dirp__tree ,name ,database_uid ,keyword.get("parent") ,"make-system-account" in keyword ,log ,preview)
     elif command == "is-same-account" and rest:
       specifier ,keyword = split_keyword(rest ,6 ,("make-system-account",))
       system_spec ,storage_spec = system_and_storage(list__account_specifier(specifier))
@@ -288,9 +288,9 @@ def CLI(argv=None):
       header(command ,None ,preview)
       SameAccount.is__not_same_account(system_spec ,storage_spec ,log ,preview)
     elif command == "attach" and rest:
-      (tree_dir,) ,keyword = split_keyword(rest ,1 ,("branch",))
-      header(command ,tree_dir ,preview)
-      Storage.attach(tree_dir ,"branch" in keyword ,log ,preview)
+      (dirp__tree,) ,keyword = split_keyword(rest ,1 ,("branch",))
+      header(command ,dirp__tree ,preview)
+      Storage.attach(dirp__tree ,"branch" in keyword ,log ,preview)
     elif command == "detach" and len(rest) == 1:
       header(command ,rest[0] ,preview)
       Storage.detach(rest[0] ,log ,preview)
@@ -298,9 +298,9 @@ def CLI(argv=None):
       header(command ,None ,preview)
       SystemConfiguration.configure(log ,preview)
     elif command == "storage register" and rest:
-      (tree_dir,) ,keyword = split_keyword(rest ,1 ,() ,("name",))
-      header(command ,tree_dir ,preview)
-      StoragePlug.register(tree_dir ,keyword.get("name") ,log ,preview)
+      (dirp__tree,) ,keyword = split_keyword(rest ,1 ,() ,("name",))
+      header(command ,dirp__tree ,preview)
+      StoragePlug.register(dirp__tree ,keyword.get("name") ,log ,preview)
     elif command == "storage unregister" and len(rest) == 1:
       header(command ,None ,preview)
       StoragePlug.unregister(rest[0] ,log ,preview)
@@ -326,8 +326,8 @@ def CLI(argv=None):
     log.error(command ,str(error))
   return log.summary()
 
-def header(command ,tree_dir ,preview):
-  where = f"   on {os.path.abspath(tree_dir)}" if tree_dir else ""
+def header(command ,dirp__tree ,preview):
+  where = f"   on {os.path.abspath(dirp__tree)}" if dirp__tree else ""
   print(f"Account-Tree_admin {'preview ' if preview else ''}{command}{where}")
 
 def usage_error(command):

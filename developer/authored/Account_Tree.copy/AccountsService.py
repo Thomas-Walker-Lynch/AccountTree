@@ -81,17 +81,17 @@ def is__hidden__set(name ,hidden):
   d = dirp__user()
   if d is None:
     return None
-  path = d / name
+  filep__user = d / name
   try:
-    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    text = filep__user.read_text(encoding="utf-8") if filep__user.exists() else ""
     new_text = text_with_key(text ,hidden)
     if new_text == text:
       return False
-    temporary = path.with_name(f".{name}.Account-Tree")
+    temporary = filep__user.with_name(f".{name}.Account-Tree")
     with open(temporary ,"w" ,encoding="utf-8") as f:
       f.write(new_text)
     os.chmod(temporary ,0o644)
-    os.replace(temporary ,path)
+    os.replace(temporary ,filep__user)
   except OSError as error:
-    raise AccountsServiceError(f"{path}: {error}")
+    raise AccountsServiceError(f"{filep__user}: {error}")
   return True

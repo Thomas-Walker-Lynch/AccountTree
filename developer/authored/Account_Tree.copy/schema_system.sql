@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS storage_device (
   storage_name   TEXT NOT NULL,
   luks_uuid      TEXT NOT NULL,
   database_uuid  TEXT NOT NULL,
-  mount_dir      TEXT NOT NULL,
+  dirpa__mount      TEXT NOT NULL,
   state          TEXT NOT NULL CHECK (state IN ('registered' ,'retired')),
   registered     TEXT NOT NULL,
   retired        TEXT

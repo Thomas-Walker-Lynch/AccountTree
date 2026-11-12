@@ -19,7 +19,7 @@ import os
 
 import Database
 import Kernel
-from Common import DIRPA__HOME ,act ,host_name ,valid_name ,tree_dir__problem ,delete_mount_point
+from Common import DIRPA__HOME ,act ,host_name ,valid_name ,dirp__tree__problem ,delete_mount_point
 from System import open_system_database
 import SystemAccount as sa
 
@@ -37,10 +37,10 @@ def open_sides(system_spec ,storage_spec ,log):
     return None
   system_db = open_system_database(log)
   if system_db is None: return None
-  problem = tree_dir__problem(storage_spec["tree_dir"])
+  problem = dirp__tree__problem(storage_spec["dirp__tree"])
   if problem:
-    log.error(storage_spec["tree_dir"] ,problem); return None
-  storage_db = Database.Database.open(Database.fpa__storage_database(storage_spec["tree_dir"]) ,"storage")
+    log.error(storage_spec["dirp__tree"] ,problem); return None
+  storage_db = Database.Database.open(Database.fpa__storage_database(storage_spec["dirp__tree"]) ,"storage")
   return system_db ,storage_db
 
 def mount_target(row):
@@ -50,16 +50,16 @@ def mount_target(row):
   """
   return DIRPA__HOME / row["system_account__name"] ,sa.system_account__by_system_uid(row["system_uid"])
 
-def is__mounted_from(target ,source):
+def is__mounted_from(dirp__target ,dirp__source):
   """
   Whether target is a mount of source: the root of a bind mount is the source
   directory itself, so the two have the same device and inode.
   """
   try:
-    a ,b = os.stat(target) ,os.stat(source)
+    a ,b = os.stat(dirp__target) ,os.stat(dirp__source)
   except OSError:
     return False
-  return Kernel.is__mount_point(target) and (a.st_dev ,a.st_ino) == (b.st_dev ,b.st_ino)
+  return Kernel.is__mount_point(dirp__target) and (a.st_dev ,a.st_ino) == (b.st_dev ,b.st_ino)
 
 def head_seen__record(system_db ,storage_db ,event ,continuity ,preview):
   """
@@ -133,9 +133,9 @@ def same_account__map(system_db ,storage_db ,system_account__name ,storage_accou
     problem = valid_name(system_account__name)
     if problem:
       log.error(system_account__name ,problem); return False
-    home = DIRPA__HOME / system_account__name
-    if Kernel.is__mount_point(home) or (home.exists() and (not home.is_dir() or any(home.iterdir()))):
-      log.error(str(home) ,"already holds something; a system account made here would take it as its home"); return False
+    dirpa__home = DIRPA__HOME / system_account__name
+    if Kernel.is__mount_point(dirpa__home) or (dirpa__home.exists() and (not dirpa__home.is_dir() or any(dirpa__home.iterdir()))):
+      log.error(str(dirpa__home) ,"already holds something; a system account made here would take it as its home"); return False
     system_uid = free__system_uid(system_db)
     if system_uid is None:
       log.error(system_account__name ,"no free system uid in this system's range"); return False
@@ -188,23 +188,23 @@ def is__not_same_account(system_spec ,storage_spec ,log ,preview):
     log.error(storage_account__name ,f"is the same account as {row['system_account__name']}, not {system_account__name}"); return
   if row["system_uid"] in Kernel.set__session__system_uid():
     log.error(system_account__name ,"has a login session; nothing was changed"); return
-  same_account__end(row ,system_db ,storage_spec["tree_dir"] ,storage_account__name ,log ,preview)
+  same_account__end(row ,system_db ,storage_spec["dirp__tree"] ,storage_account__name ,log ,preview)
 
-def same_account__end(row ,system_db ,tree_dir ,storage_account__name ,log ,preview):
+def same_account__end(row ,system_db ,dirp__tree ,storage_account__name ,log ,preview):
   """
   Undo one row of the system map: unmount the home if it is mounted from this
   storage, delete the mount point attach made, delete the system account if
   Account-Tree made it, and retire the row. Returns False when it had to stop.
   """
   name = row["system_account__name"]
-  target ,entry = mount_target(row)
-  source = Database.dirp__account_data(tree_dir) / storage_account__name
-  if is__mounted_from(target ,source):
-    if not act(log ,preview ,str(target) ,Kernel.home__unmount ,target):
+  dirpa__target ,entry = mount_target(row)
+  dirp__source = Database.dirp__account_data(dirp__tree) / storage_account__name
+  if is__mounted_from(dirpa__target ,dirp__source):
+    if not act(log ,preview ,str(dirpa__target) ,Kernel.home__unmount ,dirpa__target):
       log.line("stopped" ,name ,"the home could not be unmounted; nothing further was changed")
       return False
-    log.line("unmounted" ,str(target))
-  delete_mount_point(target ,log ,preview)
+    log.line("unmounted" ,str(dirpa__target))
+  delete_mount_point(dirpa__target ,log ,preview)
   if row["origin"] == "made" and entry is not None and entry.pw_name == name:
     group_entry = sa.system_group(name)
     if not act(log ,preview ,name ,sa.system_account__delete ,name): return False
@@ -233,7 +233,7 @@ def same_account__show(storage_spec):
   system_db = Database.Database.open(Database.FPA__SYSTEM_DATABASE ,"system")
   storage_db = None
   if storage_spec:
-    storage_db = Database.Database.open(Database.fpa__storage_database(storage_spec["tree_dir"]) ,"storage")
+    storage_db = Database.Database.open(Database.fpa__storage_database(storage_spec["dirp__tree"]) ,"storage")
   in_use = system_db.rows("SELECT * FROM system_map WHERE state = 'in use' ORDER BY system_account__name")
   if storage_db:
     in_use = [m for m in in_use if m["database_uuid"] == storage_db.uuid()]
@@ -263,8 +263,8 @@ def same_account__suggest(storage_spec):
   same account as any system account, proposed by matching names. Changes nothing.
   """
   system_db = Database.Database.open(Database.FPA__SYSTEM_DATABASE ,"system")
-  tree_dir = storage_spec["tree_dir"]
-  storage_db = Database.Database.open(Database.fpa__storage_database(tree_dir) ,"storage")
+  dirp__tree = storage_spec["dirp__tree"]
+  storage_db = Database.Database.open(Database.fpa__storage_database(dirp__tree) ,"storage")
   mapped = {m["database_uid"] for m in system_db.rows(
     "SELECT database_uid FROM system_map WHERE state = 'in use' AND database_uuid = ?" ,(storage_db.uuid(),))}
   taken = {m["system_uid"] for m in system_db.rows("SELECT system_uid FROM system_map WHERE state = 'in use'")}
@@ -272,7 +272,7 @@ def same_account__suggest(storage_spec):
   for a in storage_db.rows("SELECT * FROM account WHERE state = 'active' ORDER BY name"):
     if a["database_uid"] in mapped: continue
     entry = sa.system_account(a["name"])
-    line = f"Account-Tree_admin is-same-account system {host_name()} '{a['name']}' storage {tree_dir} '{a['name']}'"
+    line = f"Account-Tree_admin is-same-account system {host_name()} '{a['name']}' storage {dirp__tree} '{a['name']}'"
     if entry is None:
       print(line + " make-system-account")
     elif entry.pw_uid in taken or entry.pw_uid < sa.system_uid__min():

@@ -56,12 +56,12 @@ def fpa__admin():
   """
   return Path(os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)) ,"Account-Tree_admin")))
 
-def path_changer(path):
+def path_changer(filep__checked):
   """
   Why someone other than root can change the program at path, or the
   directories it is in, or None. The units run it under root.
   """
-  p = Path(path)
+  p = Path(filep__checked)
   for q in [p] + list(p.parents):
     try:
       st = q.stat()
@@ -73,8 +73,8 @@ def path_changer(path):
       return f"{q} can be written by its group or by others"
   return None
 
-def quoted(path):
-  return '"' + str(path).replace("%" ,"%%") + '"'
+def quoted(filep__quoted):
+  return '"' + str(filep__quoted).replace("%" ,"%%") + '"'
 
 def unit_text():
   admin = quoted(fpa__admin())
@@ -126,32 +126,32 @@ def rule_text(system_db):
     'SUBSYSTEM=="block", ENV{DM_NAME}=="Account-Tree_*", ENV{UDISKS_IGNORE}="1"',
   ]
   for r in list__registration(system_db):
-    line += ["" ,f"# storage {r['storage_name']}, mounted at {r['mount_dir']}",
+    line += ["" ,f"# storage {r['storage_name']}, mounted at {r['dirpa__mount']}",
       f'SUBSYSTEM=="block", ACTION!="remove", ENV{{ID_FS_UUID}}=="{r["luks_uuid"]}", ENV{{UDISKS_IGNORE}}="1",'
       ' TAG+="systemd", ENV{SYSTEMD_WANTS}+="Account-Tree_plug@%k.service"']
   return "\n".join(line) + "\n"
 
-def file__write(path ,text ,log ,preview):
+def file__write(filep__written ,text ,log ,preview):
   """
   Write a configuration file that carries MARK. Returns True when the file
   holds text afterwards, or would.
   """
-  if path.exists():
+  if filep__written.exists():
     try:
-      old = path.read_text(encoding="utf-8")
+      old = filep__written.read_text(encoding="utf-8")
     except OSError as error:
-      log.error(str(path) ,str(error)); return False
+      log.error(str(filep__written) ,str(error)); return False
     if not old.startswith(MARK):
-      log.error(str(path) ,"exists and was not made by Account-Tree; it is left as it is"); return False
+      log.error(str(filep__written) ,"exists and was not made by Account-Tree; it is left as it is"); return False
     if old == text:
-      log.line("kept" ,str(path) ,"unchanged"); return True
+      log.line("kept" ,str(filep__written) ,"unchanged"); return True
   def write():
-    temporary = path.with_name(f".{path.name}.Account-Tree")
+    temporary = filep__written.with_name(f".{filep__written.name}.Account-Tree")
     temporary.write_text(text ,encoding="utf-8")
     os.chmod(temporary ,0o644)
-    os.replace(temporary ,path)
-  if not act(log ,preview ,str(path) ,write): return False
-  log.line("written" ,str(path))
+    os.replace(temporary ,filep__written)
+  if not act(log ,preview ,str(filep__written) ,write): return False
+  log.line("written" ,str(filep__written))
   return True
 
 def rule__write(system_db ,log ,preview):

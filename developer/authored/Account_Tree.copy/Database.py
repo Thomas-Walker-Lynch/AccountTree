@@ -69,11 +69,11 @@ FPA__SYSTEM_DATABASE = DIRPA__SYSTEM / "system.sqlite3"
 def now() -> str:
   return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
-def fpa__storage_database(tree_dir) -> Path:
-  return Path(tree_dir) / "database.sqlite3"
+def fpa__storage_database(dirp__tree) -> Path:
+  return Path(dirp__tree) / "database.sqlite3"
 
-def dirp__account_data(tree_dir) -> Path:
-  return Path(tree_dir) / "account-data"
+def dirp__account_data(dirp__tree) -> Path:
+  return Path(dirp__tree) / "account-data"
 
 def transaction_hash(previous_hash ,series ,description ,change_text ,nonce) -> str:
   text = "\n".join([previous_hash ,str(series) ,description ,change_text ,nonce])
@@ -101,9 +101,9 @@ class Transaction:
 
 class Database:
 
-  def __init__(self ,connection ,path ,kind):
+  def __init__(self ,connection ,filep__database ,kind):
     self.connection = connection
-    self.path = path
+    self.path = filep__database
     self.kind = kind
     self.fpa__schema ,self.uuid_column = KIND[kind]
 
@@ -111,13 +111,13 @@ class Database:
   # opening
 
   @classmethod
-  def open(cls ,path ,kind):
-    path = Path(path)
-    if not path.is_file():
-      raise DatabaseError(f"no {kind} database at {path}")
-    connection = sqlite3.connect(str(path) ,isolation_level=None)
+  def open(cls ,filep__database ,kind):
+    filep__database = Path(filep__database)
+    if not filep__database.is_file():
+      raise DatabaseError(f"no {kind} database at {filep__database}")
+    connection = sqlite3.connect(str(filep__database) ,isolation_level=None)
     connection.row_factory = sqlite3.Row
-    database = cls(connection ,path ,kind)
+    database = cls(connection ,filep__database ,kind)
     database.check_standard()
     added = schema_added__text(kind)
     if added:
@@ -125,22 +125,22 @@ class Database:
     return database
 
   @classmethod
-  def make(cls ,path ,kind ,preview=False):
+  def make(cls ,filep__database ,kind ,preview=False):
     """
     Make an empty database of the kind, with its identity row and a new uuid.
     The directory holding it must exist. In a preview the database is built in
     memory and discarded.
     """
-    path = Path(path)
-    if path.exists():
-      raise DatabaseError(f"a database already exists at {path}")
+    filep__database = Path(filep__database)
+    if filep__database.exists():
+      raise DatabaseError(f"a database already exists at {filep__database}")
     if preview:
       connection = sqlite3.connect(":memory:" ,isolation_level=None)
     else:
-      connection = sqlite3.connect(str(path) ,isolation_level=None)
-      os.chmod(path ,0o600)
+      connection = sqlite3.connect(str(filep__database) ,isolation_level=None)
+      os.chmod(filep__database ,0o600)
     connection.row_factory = sqlite3.Row
-    database = cls(connection ,path ,kind)
+    database = cls(connection ,filep__database ,kind)
     connection.executescript(database.fpa__schema.read_text(encoding="utf-8"))
     uuid_text = str(uuid4())
     connection.execute("BEGIN")
