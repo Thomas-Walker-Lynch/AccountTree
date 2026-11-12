@@ -14,7 +14,7 @@ An account whose file says SystemAccount=true is left off the list; it can
 still be logged into by typing its name. Account-Tree sets the key and leaves
 every other key in the file as it was.
 
-  is_hidden_set(name ,hidden)   set SystemAccount for one account
+  is__hidden__set(name ,hidden)   set SystemAccount for one account
 
 The directory has been /var/lib/AccountsService on Arch, Fedora and Debian;
 one accountsservice release on Arch made /var/lib/accountsservice instead, so
@@ -24,7 +24,7 @@ both are looked for.
 import os
 from pathlib import Path
 
-DIRECTORY_LIST = (Path("/var/lib/AccountsService/users") ,Path("/var/lib/accountsservice/users"))
+DIRECTORY__LIST = (Path("/var/lib/AccountsService/users") ,Path("/var/lib/accountsservice/users"))
 SECTION = "[User]"
 KEY = "SystemAccount"
 
@@ -38,7 +38,7 @@ def user_directory():
   The directory AccountsService keeps its account files in, or None when this
   system has no AccountsService.
   """
-  for d in DIRECTORY_LIST:
+  for d in DIRECTORY__LIST:
     if d.is_dir():
       return d
   return None
@@ -49,9 +49,9 @@ def text_with_key(text ,hidden):
   line kept. A file without a [User] section gets one.
   """
   value = "true" if hidden else "false"
-  line_list = text.splitlines()
+  line__list = text.splitlines()
   result ,in_user ,done = [] ,False ,False
-  for line in line_list:
+  for line in line__list:
     stripped = line.strip()
     if stripped.startswith("[") and stripped.endswith("]"):
       if in_user and not done:
@@ -67,13 +67,13 @@ def text_with_key(text ,hidden):
       continue
     result.append(line)
   if not done:
-    if not any(l.strip() == SECTION for l in line_list):
+    if not any(l.strip() == SECTION for l in line__list):
       if result and result[-1].strip(): result.append("")
       result.append(SECTION)
     result.append(f"{KEY}={value}")
   return "\n".join(result) + "\n"
 
-def is_hidden_set(name ,hidden):
+def is__hidden__set(name ,hidden):
   """
   Set SystemAccount=true (hidden) or false for the account. Returns whether
   the file changed, or None on a system without AccountsService.
@@ -87,7 +87,7 @@ def is_hidden_set(name ,hidden):
     new_text = text_with_key(text ,hidden)
     if new_text == text:
       return False
-    temporary = path.with_name(f".{name}.AccountTree")
+    temporary = path.with_name(f".{name}.Account-Tree")
     with open(temporary ,"w" ,encoding="utf-8") as f:
       f.write(new_text)
     os.chmod(temporary ,0o644)

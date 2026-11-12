@@ -42,34 +42,34 @@ def account_argument(rest ,command):
     print(f"Error: there is no system account named '{rest[0]}'." ,file=sys.stderr)
   return entry
 
-def command_window(rest):
+def command__window(rest):
   entry = account_argument(rest ,"window")
   if entry is None: return 1
   import window
   return window.run(entry ,account_tree.acting_account())
 
-def command_list(rest):
+def command__list(rest):
   entry = account_argument(rest ,"list")
   if entry is None: return 1
-  for child in account_tree.child_account_list(entry.name):
+  for child in account_tree.child_account__list(entry.name):
     print(f"{child.name:<28}{child.uid:>7}  {child.home}")
   return 0
 
-def command_resource(rest):
+def command__resource(rest):
   if rest:
     print("Error: resource is given no arguments." ,file=sys.stderr)
     return 1
-  for group ,kind_list in resource_kind.kind_list_by_group():
+  for group ,kind__list in resource_kind.kind__list__by_group():
     print(resource_kind.GROUP_TITLE[group])
-    for kind in kind_list:
+    for kind in kind__list:
       state = "allocator" if kind.implemented else "not written"
       print(f"  {kind.name:<20}{state:<13}{kind.description}")
   return 0
 
 COMMAND = {
-  "window": command_window,
-  "list": command_list,
-  "resource": command_resource,
+  "window": command__window,
+  "list": command__list,
+  "resource": command__resource,
 }
 
 def CLI(argv=None):

@@ -22,8 +22,8 @@ SEPARATOR = "·"
 # a system account made for a branch of a storage database is named
 # <name><BRANCH_MARK><eight hex digits>
 BRANCH_MARK = "~"
-TREE_DIR_NAME = "Account-Tree"
-RESERVED_NAME = {TREE_DIR_NAME}
+TREE_DIR__NAME = "Account-Tree"
+RESERVED_NAME = {TREE_DIR__NAME}
 
 
 class Log:
@@ -101,14 +101,14 @@ def valid_name(name):
     return f"'{name}' is reserved: /home/{name} holds Account-Tree's own files"
   return None
 
-def tree_dir_problem(tree_dir):
+def tree_dir__problem(tree_dir):
   """
   Why tree_dir is not a tree dir, or None. A tree dir is
   <storage root>/home/Account-Tree; every storage keeps the same layout.
   """
   path = Path(tree_dir)
-  if path.name != TREE_DIR_NAME or path.parent.name != "home":
-    return f"{tree_dir} is not a tree dir; a tree dir is <storage root>/home/{TREE_DIR_NAME}, such as /home/{TREE_DIR_NAME}"
+  if path.name != TREE_DIR__NAME or path.parent.name != "home":
+    return f"{tree_dir} is not a tree dir; a tree dir is <storage root>/home/{TREE_DIR__NAME}, such as /home/{TREE_DIR__NAME}"
   return None
 
 def delete_mount_point(target ,log ,preview):
@@ -119,13 +119,13 @@ def delete_mount_point(target ,log ,preview):
   """
   if not target.exists():
     return
-  if preview and kernel.is_mount_point(target):
+  if preview and kernel.is__mount_point(target):
     log.line("deleted" ,str(target) ,"mount point, once unmounted, if attach made it")
     return
   st = target.lstat()
-  if kernel.is_mount_point(target) or not target.is_dir() or st.st_uid != 0 or (st.st_mode & 0o7777) != 0 or any(target.iterdir()):
+  if kernel.is__mount_point(target) or not target.is_dir() or st.st_uid != 0 or (st.st_mode & 0o7777) != 0 or any(target.iterdir()):
     log.line("kept" ,str(target) ,"not an empty mount point made by attach")
     return
-  if not act(log ,preview ,str(target) ,kernel.immutable_set ,target ,False): return
+  if not act(log ,preview ,str(target) ,kernel.immutable__set ,target ,False): return
   if not act(log ,preview ,str(target) ,target.rmdir): return
   log.line("deleted" ,str(target) ,"mount point")

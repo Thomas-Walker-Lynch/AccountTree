@@ -4,7 +4,7 @@ system_configuration - the systemd units and udev rules Account-Tree places
 
   configure(log ,preview)          write the units and the rules, then have
                                    systemd and udev read them again
-  rule_write(system_db ,log ,preview)
+  rule__write(system_db ,log ,preview)
                                    write the rules from the registered storage
 
 Each file begins with MARK. A file Account-Tree writes is replaced only when it
@@ -17,19 +17,19 @@ How a plug reaches Account-Tree. udev runs the rules when a device appears.
   A FIDO2 key, a hidraw device that systemd's 60-fido-id.rules marks
   ID_SECURITY_TOKEN=1, is tagged for systemd, so that systemd makes a device
   unit for it, dev-hidrawN.device, active while the key is plugged in. It also
-  wants AccountTree-key-arrive.service, which plugs any registered storage
+  wants Account-Tree_key-arrive.service, which plugs any registered storage
   that arrived before its key.
 
   A registered storage's LUKS2 partition, matched by its LUKS uuid, wants
-  AccountTree-plug@<kernel name>.service, such as AccountTree-plug@sdb1. The
+  Account-Tree_plug@<kernel name>.service, such as Account-Tree_plug@sdb1. The
   service is bound to the partition's device unit: it starts when the drive
   arrives, running storage plug, and systemd stops it when the drive goes,
   running storage unplug. The partition, and the unlocked device
-  AccountTree_<storage name>, are marked UDISKS_IGNORE, so that the desktop's
+  Account-Tree_<storage name>, are marked UDISKS_IGNORE, so that the desktop's
   file manager neither asks for a passphrase nor offers its own eject, which
   cannot end the accounts' processes first.
 
-  When a key unlocks a storage, plug starts AccountTree-key@hidrawN.service,
+  When a key unlocks a storage, plug starts Account-Tree_key@hidrawN.service,
   bound to the key's device unit; pulling the key out stops it, and its
   ExecStop unplugs every storage that key unlocked.
 
@@ -42,11 +42,11 @@ import os ,stat ,subprocess
 from pathlib import Path
 
 from common import act
-from storage_plug import registration_list ,run ,run_logged ,program
+from storage_plug import registration__list ,run ,run_logged ,program
 
-MARK = "# made by AccountTree; AccountTree_admin system configure replaces this file"
+MARK = "# made by Account-Tree; Account-Tree_admin system configure replaces this file"
 UNIT_DIR = Path("/etc/systemd/system")
-RULE_PATH = Path("/etc/udev/rules.d/90-AccountTree.rules")
+RULE_PATH = Path("/etc/udev/rules.d/90-Account-Tree.rules")
 TRUE_PATH = "/usr/bin/true"
 
 
@@ -79,7 +79,7 @@ def quoted(path):
 def unit_text():
   admin = quoted(admin_path())
   return {
-    "AccountTree-plug@.service": f"""{MARK}
+    "Account-Tree_plug@.service": f"""{MARK}
 [Unit]
 Description=Account-Tree storage on /dev/%i
 BindsTo=dev-%i.device
@@ -93,7 +93,7 @@ TimeoutStartSec=180
 ExecStart={admin} storage plug /dev/%i
 ExecStop={admin} storage unplug /dev/%i
 """,
-    "AccountTree-key@.service": f"""{MARK}
+    "Account-Tree_key@.service": f"""{MARK}
 [Unit]
 Description=Account-Tree key on /dev/%i
 BindsTo=dev-%i.device
@@ -105,7 +105,7 @@ RemainAfterExit=yes
 ExecStart={TRUE_PATH}
 ExecStop={admin} storage unplug key /dev/%i
 """,
-    "AccountTree-key-arrive.service": f"""{MARK}
+    "Account-Tree_key-arrive.service": f"""{MARK}
 [Unit]
 Description=Account-Tree plug of storage waiting for a key
 
@@ -120,18 +120,18 @@ def rule_text(system_db):
   line = [MARK ,"" ,
     "# a FIDO2 key: a systemd device unit while it is plugged in, and a plug of any storage waiting for it",
     'SUBSYSTEM=="hidraw", ACTION!="remove", ENV{ID_SECURITY_TOKEN}=="1", TAG+="systemd",'
-    ' ENV{SYSTEMD_WANTS}+="AccountTree-key-arrive.service"',
+    ' ENV{SYSTEMD_WANTS}+="Account-Tree_key-arrive.service"',
     "" ,
     "# the device a storage is unlocked as: kept out of the file manager",
-    'SUBSYSTEM=="block", ENV{DM_NAME}=="AccountTree_*", ENV{UDISKS_IGNORE}="1"',
+    'SUBSYSTEM=="block", ENV{DM_NAME}=="Account-Tree_*", ENV{UDISKS_IGNORE}="1"',
   ]
-  for r in registration_list(system_db):
+  for r in registration__list(system_db):
     line += ["" ,f"# storage {r['storage_name']}, mounted at {r['mount_dir']}",
       f'SUBSYSTEM=="block", ACTION!="remove", ENV{{ID_FS_UUID}}=="{r["luks_uuid"]}", ENV{{UDISKS_IGNORE}}="1",'
-      ' TAG+="systemd", ENV{SYSTEMD_WANTS}+="AccountTree-plug@%k.service"']
+      ' TAG+="systemd", ENV{SYSTEMD_WANTS}+="Account-Tree_plug@%k.service"']
   return "\n".join(line) + "\n"
 
-def file_write(path ,text ,log ,preview):
+def file__write(path ,text ,log ,preview):
   """
   Write a configuration file that carries MARK. Returns True when the file
   holds text afterwards, or would.
@@ -146,7 +146,7 @@ def file_write(path ,text ,log ,preview):
     if old == text:
       log.line("kept" ,str(path) ,"unchanged"); return True
   def write():
-    temporary = path.with_name(f".{path.name}.AccountTree")
+    temporary = path.with_name(f".{path.name}.Account-Tree")
     temporary.write_text(text ,encoding="utf-8")
     os.chmod(temporary ,0o644)
     os.replace(temporary ,path)
@@ -154,10 +154,10 @@ def file_write(path ,text ,log ,preview):
   log.line("written" ,str(path))
   return True
 
-def rule_write(system_db ,log ,preview):
+def rule__write(system_db ,log ,preview):
   if not RULE_PATH.parent.is_dir():
     log.line("skipped" ,str(RULE_PATH) ,"this system has no /etc/udev/rules.d"); return False
-  if not file_write(RULE_PATH ,rule_text(system_db) ,log ,preview): return False
+  if not file__write(RULE_PATH ,rule_text(system_db) ,log ,preview): return False
   if program("udevadm") and run_logged(log ,preview ,"udev" ,["udevadm" ,"control" ,"--reload"]):
     log.line("reloaded" ,"udev rules")
   return True
@@ -174,10 +174,10 @@ def configure(log ,preview):
   if not UNIT_DIR.is_dir():
     log.error(str(UNIT_DIR) ,"no such directory; is this system run by systemd?"); return
   for name ,text in unit_text().items():
-    file_write(UNIT_DIR / name ,text ,log ,preview)
+    file__write(UNIT_DIR / name ,text ,log ,preview)
   if run_logged(log ,preview ,"systemd" ,["systemctl" ,"daemon-reload"]):
     log.line("reloaded" ,"systemd units")
-  if not rule_write(system_db ,log ,preview): return
+  if not rule__write(system_db ,log ,preview): return
   # tag the keys plugged in now, so that systemd has their device units
   if program("udevadm") and run_logged(log ,preview ,"udev" ,["udevadm" ,"trigger" ,"--action=change" ,"--subsystem-match=hidraw"]):
     log.line("reloaded" ,"the keys plugged in now" ,"udev ran its rules for them again")

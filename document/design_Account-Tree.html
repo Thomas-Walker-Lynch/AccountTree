@@ -143,12 +143,12 @@
 
       <RT·code>
         home/Account-Tree/database.sqlite3            the storage database
-        home/Account-Tree/account_data/&lt;name&gt;     the home of each storage account, by name
+        home/Account-Tree/account-data/&lt;name&gt;     the home of each storage account, by name
         home/&lt;other&gt;                               anything else, such as the homes of unmanaged accounts
       </RT·code>
 
       <p>
-        Everything Account-Tree keeps on a storage is under its tree dir, so the storage can carry other things beside it, and the storage database sits with the data it describes. <RT·code>account_data</RT·code> holds the accounts' homes; on a running system each is reached through an idmapped mount at <RT·code>/home/&lt;system account&gt;</RT·code>. An account named <RT·code>database</RT·code> cannot collide with the database, because the two are at different levels.
+        Everything Account-Tree keeps on a storage is under its tree dir, so the storage can carry other things beside it, and the storage database sits with the data it describes. <RT·code>account-data</RT·code> holds the accounts' homes; on a running system each is reached through an idmapped mount at <RT·code>/home/&lt;system account&gt;</RT·code>. An account named <RT·code>database</RT·code> cannot collide with the database, because the two are at different levels.
       </p>
 
       <p>
@@ -156,7 +156,7 @@
       </p>
 
       <p>
-        A tool that walks <RT·code>/home</RT·code> sees each mounted account's files twice: at <RT·code>/home/&lt;system account&gt;</RT·code>, and at <RT·code>/home/Account-Tree/account_data/&lt;name&gt;</RT·code>. A bind mount of the same file system reports the same device number, so options such as <RT·code>rsync -x</RT·code> do not stop at the mount. A backup of <RT·code>/home</RT·code> excludes one of the two.
+        A tool that walks <RT·code>/home</RT·code> sees each mounted account's files twice: at <RT·code>/home/&lt;system account&gt;</RT·code>, and at <RT·code>/home/Account-Tree/account-data/&lt;name&gt;</RT·code>. A bind mount of the same file system reports the same device number, so options such as <RT·code>rsync -x</RT·code> do not stop at the mount. A backup of <RT·code>/home</RT·code> excludes one of the two.
       </p>
 
       <h2>Every storage is the same</h2>
@@ -177,7 +177,7 @@
 
       <ul>
         <li>Every attach and every detach is a transaction in the storage database. Two copies used apart therefore have different heads, even when no account was made or changed on either.</li>
-        <li>The system records every head of each storage database it sees, in its <RT·code>storage_head_seen</RT·code> table: when one of its accounts is made the same account as a system account, and at each attach and detach.</li>
+        <li>The system records every head of each storage database it sees, in its <RT·code>storage_head__seen</RT·code> table: when one of its accounts is made the same account as a system account, and at each attach and detach.</li>
       </ul>
 
       <p>
@@ -286,12 +286,12 @@
         <li>the storage database names no other system that has seen it, since that system's map would name a database that no longer exists, unless the keyword <RT·code>forget-other-systems</RT·code> is given;</li>
         <li>no system account that is the same account as one of its accounts has a login session;</li>
         <li>nothing is mounted inside the tree dir;</li>
-        <li>the tree dir holds only the storage database and <RT·code>account_data</RT·code>, and <RT·code>account_data</RT·code> holds only homes of the database's accounts;</li>
+        <li>the tree dir holds only the storage database and <RT·code>account-data</RT·code>, and <RT·code>account-data</RT·code> holds only homes of the database's accounts;</li>
         <li>homes that hold files are deleted only when the keyword <RT·code>delete-account-data</RT·code> is given.</li>
       </ul>
 
       <p>
-        For each row of this system's map naming one of its accounts, it then unmounts the home, deletes the mount point attach made, recognized as an empty directory owned by root with mode 0000, deletes the system account and its group when Account-Tree made them, keeps an adopted system account, and retires the row. Last it deletes <RT·code>account_data</RT·code>, the storage database and the tree dir. Run a second time, it finds nothing to delete and says so. <RT·code>system delete</RT·code> deletes the system database, and is refused while any row of the system map is in use.
+        For each row of this system's map naming one of its accounts, it then unmounts the home, deletes the mount point attach made, recognized as an empty directory owned by root with mode 0000, deletes the system account and its group when Account-Tree made them, keeps an adopted system account, and retires the row. Last it deletes <RT·code>account-data</RT·code>, the storage database and the tree dir. Run a second time, it finds nothing to delete and says so. <RT·code>system delete</RT·code> deletes the system database, and is refused while any row of the system map is in use.
       </p>
 
       <h1>The databases</h1>
@@ -308,7 +308,7 @@
         <li><RT·code>account</RT·code>: one row per storage account: database uid, name, the database uid and name of its parent, state (<RT·code>active</RT·code>, <RT·code>deprecated</RT·code>, <RT·code>deallocated</RT·code>), and times. The parent's database uid is empty when the parent is root or is carried by another database.</li>
         <li><RT·code>database_uid</RT·code>: every database uid this database has ever given out, with whether it is in use or retired.</li>
         <li><RT·code>system_seen</RT·code>: the systems that have seen this database, with when that was first and last. For the owner of the storage, and for <RT·code>storage delete</RT·code>, which will not leave a system mapping a database that no longer exists. Never authority.</li>
-        <li><RT·code>acquaintance_database</RT·code> and <RT·code>same_account_database</RT·code>: other storage databases this one knows, and which of their accounts are the same accounts as accounts here, by database uid. Written into both databases. Not used in 5.0.</li>
+        <li><RT·code>acquaintance_database</RT·code> and <RT·code>same_account__database</RT·code>: other storage databases this one knows, and which of their accounts are the same accounts as accounts here, by database uid. Written into both databases. Not used in 5.0.</li>
         <li><RT·code>transaction_log</RT·code>: the record of every change, described below.</li>
       </ul>
 
@@ -317,9 +317,9 @@
       <ul>
         <li><RT·code>identity</RT·code>: the system uuid, the series number, the head hash, and when the database was made. One row. The system is shown by its host name, read when it is shown, so a name for people is not kept.</li>
         <li><RT·code>standard</RT·code>: as for a storage database.</li>
-        <li><RT·code>system_uid_range</RT·code>: the first and last system uid Account-Tree gives a system account it makes. One row.</li>
+        <li><RT·code>system_uid__range</RT·code>: the first and last system uid Account-Tree gives a system account it makes. One row.</li>
         <li><RT·code>system_map</RT·code>: one row for each time a system account has been made the same account as a storage account: the system uid and gid, the system account's name, the database uuid and database uid, whether Account-Tree made the system account or adopted one that existed, whether the row is in use or retired, and when. At most one row in use names a given system uid, and at most one names a given storage account. A row is retired, never deleted. An adopted system account can be made the same account again once its row is retired; a system uid that appears in any row is never given to a system account Account-Tree makes.</li>
-        <li><RT·code>storage_head_seen</RT·code>: every head of each storage database this system has seen, with the event (mapped, attached, detached), and at attach, the continuity found.</li>
+        <li><RT·code>storage_head__seen</RT·code>: every head of each storage database this system has seen, with the event (mapped, attached, detached), and at attach, the continuity found.</li>
         <li><RT·code>account_limit</RT·code>: the number of child accounts each system account is allowed below it, by system uid. A system account with no row is allowed none.</li>
         <li><RT·code>transaction_log</RT·code>: the record of every change.</li>
       </ul>
@@ -367,7 +367,7 @@
       <h1>Same accounts</h1>
 
       <p>
-        A storage account's home, <RT·code>account_data/&lt;name&gt;</RT·code> in its tree dir, carries only its database uid. What lets it be used on a system is a row of that system's map, saying that a system account there is the same account as the storage account. The administrator states it:
+        A storage account's home, <RT·code>account-data/&lt;name&gt;</RT·code> in its tree dir, carries only its database uid. What lets it be used on a system is a row of that system's map, saying that a system account there is the same account as the storage account. The administrator states it:
       </p>
 
       <RT·code>
@@ -431,7 +431,7 @@
       </p>
 
       <ul>
-        <li><RT·code>make</RT·code> &lt;short name&gt;: make a child account of the requesting account. Checks: the short name is valid and not in use; the requesting account's limit, and the limit of every account above it in its tree, allow one more. The child account is made in the storage database of the requesting account unless another attached storage is named. Steps: a database uid, never given before, and the account row in the storage database; a system uid, never given before, and the row in the system map; the system account; the home in <RT·code>account_data</RT·code>, owned by the database uid, mode 0700; the mount of it at <RT·code>/home/&lt;name&gt;</RT·code>; the parent's view.</li>
+        <li><RT·code>make</RT·code> &lt;short name&gt;: make a child account of the requesting account. Checks: the short name is valid and not in use; the requesting account's limit, and the limit of every account above it in its tree, allow one more. The child account is made in the storage database of the requesting account unless another attached storage is named. Steps: a database uid, never given before, and the account row in the storage database; a system uid, never given before, and the row in the system map; the system account; the home in <RT·code>account-data</RT·code>, owned by the database uid, mode 0700; the mount of it at <RT·code>/home/&lt;name&gt;</RT·code>; the parent's view.</li>
         <li><RT·code>rename</RT·code> &lt;account&gt; &lt;new short name&gt;: rename a child account. The account, and every account below it, whose names begin with its name, must have no session; all are renamed together. The uids and files do not change; the homes, mount points and views are renamed with them.</li>
         <li><RT·code>deprecate</RT·code> &lt;account&gt;: end the account's sessions, lock it, and mark it deprecated. Its data, name and uid are kept. It still counts against the limits. A deprecated account can be restored.</li>
         <li><RT·code>deallocate</RT·code> &lt;account&gt;: remove a deprecated account. Its system account and views are removed, and its database uid and system uid are retired. What becomes of its data is open: the proposal is to move it to a holding directory on the storage, from which only the administrator removes it.</li>
@@ -453,8 +453,8 @@
 
       <ul>
         <li><em>Account.</em> Commands: make a system account with a given name and system uid; delete a system account; delete its group. Constraints: the name is a valid account name; a new system uid lies in Account-Tree's range and appears in no row of the system map; a system account is deleted only when the system map records that Account-Tree made it. Edits <RT·code>/etc/passwd</RT·code>, <RT·code>/etc/shadow</RT·code>, <RT·code>/etc/group</RT·code> and <RT·code>/etc/gshadow</RT·code>.</li>
-        <li><em>Home.</em> Commands: make a storage account's home in <RT·code>account_data</RT·code>, owned by its database uid, mode 0700; delete a home and its files. Constraints: the tree dir holds a storage database whose database uuid the system database knows, and the storage account exists there with that database uid; a home is deleted only during the deletion of its storage, or of a deallocated account.</li>
-        <li><em>Mount.</em> Commands: make and delete a mount point; mount and unmount a home; mount and unmount a view. Constraints: a home is mounted only from <RT·code>&lt;tree dir&gt;/account_data/&lt;storage account&gt;</RT·code> onto <RT·code>/home/&lt;system account&gt;</RT·code>, where a row of the system map in use pairs the two, with that row's uid translation; a view is mounted only of a child account's home, at <RT·code>~/account_child/&lt;short name&gt;</RT·code> of its parent; every mount is <RT·code>nosuid</RT·code> and <RT·code>nodev</RT·code>; a mount point is an empty directory owned by root with mode 0000, made and deleted only at <RT·code>/home/&lt;system account&gt;</RT·code>.</li>
+        <li><em>Home.</em> Commands: make a storage account's home in <RT·code>account-data</RT·code>, owned by its database uid, mode 0700; delete a home and its files. Constraints: the tree dir holds a storage database whose database uuid the system database knows, and the storage account exists there with that database uid; a home is deleted only during the deletion of its storage, or of a deallocated account.</li>
+        <li><em>Mount.</em> Commands: make and delete a mount point; mount and unmount a home; mount and unmount a view. Constraints: a home is mounted only from <RT·code>&lt;tree dir&gt;/account-data/&lt;storage account&gt;</RT·code> onto <RT·code>/home/&lt;system account&gt;</RT·code>, where a row of the system map in use pairs the two, with that row's uid translation; a view is mounted only of a child account's home, at <RT·code>~/account_child/&lt;short name&gt;</RT·code> of its parent; every mount is <RT·code>nosuid</RT·code> and <RT·code>nodev</RT·code>; a mount point is an empty directory owned by root with mode 0000, made and deleted only at <RT·code>/home/&lt;system account&gt;</RT·code>.</li>
         <li><em>Session.</em> Commands: start a session, or a program, in an account. Constraint: the requesting account is above the account in the tree.</li>
       </ul>
 
@@ -573,7 +573,7 @@
 
       <ul>
         <li><RT·code>kernel</RT·code>: direct calls, made through ctypes. The idmapped mount through <RT·code>open_tree</RT·code>, <RT·code>mount_setattr</RT·code> and <RT·code>move_mount</RT·code>; unmounting through <RT·code>umount2</RT·code>; the mount table from <RT·code>/proc/self/mountinfo</RT·code>; the immutable flag through the <RT·code>FS_IOC_SETFLAGS</RT·code> ioctl; login sessions through <RT·code>sd_get_uids</RT·code> in libsystemd. Its changing calls move into the mount journal interpreter; its reading calls stay available to the server.</li>
-        <li><RT·code>system_account</RT·code>: reading system accounts directly, through the C library, and changing them through wrappers, <RT·code>system_account_make</RT·code>, <RT·code>system_account_delete</RT·code> and <RT·code>system_group_delete</RT·code>, which run the shadow suite's commands for now. In the future each will be a direct call: the lines of <RT·code>/etc/passwd</RT·code>, <RT·code>/etc/shadow</RT·code>, <RT·code>/etc/group</RT·code> and <RT·code>/etc/gshadow</RT·code> edited under the C library's lock, <RT·code>lckpwdf</RT·code>, each new file written beside the old one and renamed into place. The changing calls move into the account journal interpreter.</li>
+        <li><RT·code>system_account</RT·code>: reading system accounts directly, through the C library, and changing them through wrappers, <RT·code>system_account__make</RT·code>, <RT·code>system_account__delete</RT·code> and <RT·code>system_group__delete</RT·code>, which run the shadow suite's commands for now. In the future each will be a direct call: the lines of <RT·code>/etc/passwd</RT·code>, <RT·code>/etc/shadow</RT·code>, <RT·code>/etc/group</RT·code> and <RT·code>/etc/gshadow</RT·code> edited under the C library's lock, <RT·code>lckpwdf</RT·code>, each new file written beside the old one and renamed into place. The changing calls move into the account journal interpreter.</li>
         <li><RT·code>database</RT·code>, <RT·code>system</RT·code>, <RT·code>storage</RT·code> and <RT·code>same_account</RT·code>: the databases and the work functions on them, which compose journals where they now change the system directly.</li>
         <li><RT·code>account_tree</RT·code>, <RT·code>authority</RT·code>, <RT·code>resource_kind</RT·code> and <RT·code>window</RT·code>: the person's side.</li>
       </ul>

@@ -49,7 +49,7 @@ KIND = {
 # this way is empty, so the record's replay, built from the schema file, still
 # matches; the statements are taken from the schema file itself, between the
 # marker lines, so the two cannot drift apart.
-def schema_added_text(kind) -> str:
+def schema_added__text(kind) -> str:
   text = KIND[kind][0].read_text(encoding="utf-8")
   start = "CREATE TABLE IF NOT EXISTS"
   if start not in text:
@@ -63,17 +63,17 @@ def schema_added_text(kind) -> str:
   return "\n".join(line for line in body.splitlines() if not line.startswith("--"))
 
 SYSTEM_DIR = Path("/var/lib/Account-Tree")
-SYSTEM_DATABASE_PATH = SYSTEM_DIR / "system.sqlite3"
+SYSTEM_DATABASE__PATH = SYSTEM_DIR / "system.sqlite3"
 
 
 def now() -> str:
   return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
-def storage_database_path(tree_dir) -> Path:
+def storage_database__path(tree_dir) -> Path:
   return Path(tree_dir) / "database.sqlite3"
 
-def account_data_dir(tree_dir) -> Path:
-  return Path(tree_dir) / "account_data"
+def account_data__dir(tree_dir) -> Path:
+  return Path(tree_dir) / "account-data"
 
 def transaction_hash(previous_hash ,series ,description ,change_text ,nonce) -> str:
   text = "\n".join([previous_hash ,str(series) ,description ,change_text ,nonce])
@@ -119,7 +119,7 @@ class Database:
     connection.row_factory = sqlite3.Row
     database = cls(connection ,path ,kind)
     database.check_standard()
-    added = schema_added_text(kind)
+    added = schema_added__text(kind)
     if added:
       connection.executescript(added)
     return database
@@ -186,7 +186,7 @@ class Database:
     d = self.identity()
     return d["series"] ,d["head_hash"]
 
-  def has_head(self ,series ,head_hash) -> bool:
+  def has__head(self ,series ,head_hash) -> bool:
     """
     Whether this database's record holds the transaction with that series
     number and hash: whether this database is, or descends from, the one that
@@ -287,17 +287,17 @@ class Database:
     except sqlite3.Error as error:
       return [f"replaying the record failed: {error}"]
     problem = []
-    table_list = [r[0] for r in replay.execute(
+    table__list = [r[0] for r in replay.execute(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT IN ('identity' ,'transaction_log')"
       " AND name NOT LIKE 'sqlite_%' ORDER BY name")]
-    for table in table_list:
+    for table in table__list:
       here = sorted((tuple(r) for r in self.connection.execute(f"SELECT * FROM {table}")) ,key=repr)
       there = sorted((tuple(r) for r in replay.execute(f"SELECT * FROM {table}")) ,key=repr)
       if here != there:
         problem.append(f"table {table} differs from the replay of the record")
     # every column of identity but series and head_hash, which the chain sets
-    column_list = [c[1] for c in replay.execute("PRAGMA table_info(identity)") if c[1] not in ("series" ,"head_hash")]
-    column = "SELECT " + " ,".join(column_list) + " FROM identity"
+    column__list = [c[1] for c in replay.execute("PRAGMA table_info(identity)") if c[1] not in ("series" ,"head_hash")]
+    column = "SELECT " + " ,".join(column__list) + " FROM identity"
     if tuple(self.connection.execute(column).fetchone()) != tuple(replay.execute(column).fetchone()):
       problem.append("table identity differs from the replay of the record")
     return problem

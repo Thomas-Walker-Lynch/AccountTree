@@ -30,7 +30,7 @@ CREATE TABLE standard (
 );
 
 -- The range of system uids Account-Tree gives the system accounts it makes. One row.
-CREATE TABLE system_uid_range (
+CREATE TABLE system_uid__range (
   first  INTEGER NOT NULL,
   last   INTEGER NOT NULL
 );
@@ -44,7 +44,7 @@ CREATE TABLE system_map (
   id                   INTEGER PRIMARY KEY,
   system_uid           INTEGER NOT NULL,
   system_gid           INTEGER NOT NULL,
-  system_account_name  TEXT NOT NULL,   -- kept so that a system account lost from /etc/passwd can be made again
+  system_account__name  TEXT NOT NULL,   -- kept so that a system account lost from /etc/passwd can be made again
   database_uuid        TEXT NOT NULL,
   database_uid         INTEGER NOT NULL,
   origin               TEXT NOT NULL CHECK (origin IN ('made' ,'adopted')),
@@ -52,15 +52,15 @@ CREATE TABLE system_map (
   mapped               TEXT NOT NULL,
   retired              TEXT
 );
-CREATE UNIQUE INDEX system_map_system_uid_in_use ON system_map(system_uid) WHERE state = 'in use';
-CREATE UNIQUE INDEX system_map_storage_account_in_use ON system_map(database_uuid ,database_uid) WHERE state = 'in use';
+CREATE UNIQUE INDEX system_map__system_uid__in_use ON system_map(system_uid) WHERE state = 'in use';
+CREATE UNIQUE INDEX system_map__storage_account__in_use ON system_map(database_uuid ,database_uid) WHERE state = 'in use';
 
 -- Every head of each storage database this system has seen: when a storage
 -- account of it was made the same account as a system account, and at each
 -- attach and detach. At attach, comparing the storage's record with these
 -- heads tells whether the storage has moved on since, gone back to an older
 -- copy, or gone sideways, a branch.
-CREATE TABLE storage_head_seen (
+CREATE TABLE storage_head__seen (
   id             INTEGER PRIMARY KEY,
   database_uuid  TEXT NOT NULL,
   series         INTEGER NOT NULL,
@@ -80,10 +80,10 @@ CREATE TABLE account_limit (
 -- Each removable storage registered here: the LUKS2 partition that holds it,
 -- found by its LUKS uuid, the storage database it carries, and where it is
 -- mounted when it is unlocked. The storage name names the device-mapper
--- device, AccountTree_<storage name>, and the log lines. A row is never
+-- device, Account-Tree_<storage name>, and the log lines. A row is never
 -- deleted; unregistering retires it. This table was added after the first
 -- system databases were made, so its statements say IF NOT EXISTS, and
--- opening a system database runs them (see schema_added_text in database.py).
+-- opening a system database runs them (see schema_added__text in database.py).
 CREATE TABLE IF NOT EXISTS storage_device (
   id             INTEGER PRIMARY KEY,
   storage_name   TEXT NOT NULL,
@@ -94,8 +94,8 @@ CREATE TABLE IF NOT EXISTS storage_device (
   registered     TEXT NOT NULL,
   retired        TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS storage_device_luks_registered ON storage_device(luks_uuid) WHERE state = 'registered';
-CREATE UNIQUE INDEX IF NOT EXISTS storage_device_name_registered ON storage_device(storage_name) WHERE state = 'registered';
+CREATE UNIQUE INDEX IF NOT EXISTS storage_device__luks_registered ON storage_device(luks_uuid) WHERE state = 'registered';
+CREATE UNIQUE INDEX IF NOT EXISTS storage_device__name_registered ON storage_device(storage_name) WHERE state = 'registered';
 
 -- Every change. hash covers previous_hash, series, description, change and nonce.
 CREATE TABLE transaction_log (

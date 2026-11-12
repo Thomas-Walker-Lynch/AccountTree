@@ -24,8 +24,8 @@ CREATE TABLE identity (
   database_uuid        TEXT NOT NULL,
   genesis_uuid         TEXT NOT NULL,
   branch_of            TEXT,              -- database uuid this one branched from
-  branch_after_series  INTEGER,
-  branch_after_head    TEXT,
+  branch__after_series  INTEGER,
+  branch__after_head    TEXT,
   series               INTEGER NOT NULL,  -- series number of the last transaction
   head_hash            TEXT NOT NULL,     -- hash of the last transaction
   created              TEXT NOT NULL
@@ -41,7 +41,7 @@ CREATE TABLE standard (
 CREATE TABLE account (
   database_uid         INTEGER PRIMARY KEY,
   name                 TEXT NOT NULL UNIQUE,
-  parent_database_uid  INTEGER,              -- NULL when the parent is not carried here
+  parent__database_uid  INTEGER,              -- NULL when the parent is not carried here
   parent_name          TEXT,                 -- NULL for an account whose parent is root
   state                TEXT NOT NULL CHECK (state IN ('active' ,'deprecated' ,'deallocated')),
   created              TEXT NOT NULL,
@@ -73,12 +73,12 @@ CREATE TABLE acquaintance_database (
   introduced     TEXT NOT NULL
 );
 
-CREATE TABLE same_account_database (
-  other_database_uuid  TEXT NOT NULL,
-  other_database_uid   INTEGER NOT NULL,
+CREATE TABLE same_account__database (
+  other_database__uuid  TEXT NOT NULL,
+  other_database__uid   INTEGER NOT NULL,
   database_uid         INTEGER NOT NULL,
-  PRIMARY KEY (other_database_uuid ,other_database_uid),
-  UNIQUE (other_database_uuid ,database_uid)
+  PRIMARY KEY (other_database__uuid ,other_database__uid),
+  UNIQUE (other_database__uuid ,database_uid)
 );
 
 -- Every change. hash covers previous_hash, series, description, change and nonce.

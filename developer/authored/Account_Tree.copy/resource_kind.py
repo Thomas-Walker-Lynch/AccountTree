@@ -35,7 +35,7 @@ GROUP_TITLE = {
   "privilege": "Privileges",
 }
 
-KIND_LIST = [
+KIND__LIST = [
   ResourceKind("child account" ,"account",
     "a new account below this one; it opens its own resource window"),
   ResourceKind("capture account" ,"account",
@@ -73,8 +73,8 @@ KIND_LIST = [
 ]
 
 
-def kind_list_by_group():
+def kind__list__by_group():
   result = []
   for group in GROUP_ORDER:
-    result.append((group ,[k for k in KIND_LIST if k.group == group]))
+    result.append((group ,[k for k in KIND__LIST if k.group == group]))
   return result

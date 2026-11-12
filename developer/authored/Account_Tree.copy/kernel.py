@@ -3,16 +3,16 @@
 kernel - direct calls to the Linux kernel and to libsystemd, made through
 ctypes, for the work that Account-Tree does on mounts, files and sessions.
 
-  home_mount            mount an account's home: a bind mount, idmapped when the
+  home__mount            mount an account's home: a bind mount, idmapped when the
                         database uid and system uid differ, nosuid and nodev
-  home_unmount          unmount it
-  mount_point_list      every mount point, from /proc/self/mountinfo
-  is_mount_point        whether a path is one
-  immutable_set         set or clear a directory's immutable flag
-  session_system_uid_set
+  home__unmount          unmount it
+  mount_point__list      every mount point, from /proc/self/mountinfo
+  is__mount_point        whether a path is one
+  immutable__set         set or clear a directory's immutable flag
+  session__system_uid__set
                         the system uids that have a login session
 
-home_mount uses the mount calls Linux has had since 5.12: open_tree clones the
+home__mount uses the mount calls Linux has had since 5.12: open_tree clones the
 source as a detached mount, mount_setattr gives it its attributes and its
 idmap, and move_mount places it. An idmap is described to the kernel as a
 user namespace: a child process is made in a new user namespace, its uid and
@@ -64,7 +64,7 @@ def check(result ,what):
 # --------------------------------------------------------------------------------
 # mounts
 
-def idmap_namespace_fd(database_uid ,system_uid ,system_gid):
+def idmap_namespace__fd(database_uid ,system_uid ,system_gid):
   """
   A file descriptor for a user namespace whose maps say: a file owned on disk
   by database_uid appears as system_uid, and its group database_uid appears as
@@ -72,30 +72,30 @@ def idmap_namespace_fd(database_uid ,system_uid ,system_gid):
   idmapped mount the kernel takes the id on disk as an id inside the
   namespace, and the id it maps to outside as the id seen through the mount.
   """
-  ready_read ,ready_write = os.pipe()
-  release_read ,release_write = os.pipe()
+  ready__read ,ready__write = os.pipe()
+  release__read ,release__write = os.pipe()
   pid = os.fork()
   if pid == 0:
     try:
-      os.close(ready_read); os.close(release_write)
+      os.close(ready__read); os.close(release__write)
       os.unshare(os.CLONE_NEWUSER)
-      os.write(ready_write ,b"x")
-      os.read(release_read ,1)
+      os.write(ready__write ,b"x")
+      os.read(release__read ,1)
     finally:
       os._exit(0)
-  os.close(ready_write); os.close(release_read)
+  os.close(ready__write); os.close(release__read)
   try:
-    if os.read(ready_read ,1) != b"x":
+    if os.read(ready__read ,1) != b"x":
       raise KernelError("the child process for the idmap did not start")
     Path(f"/proc/{pid}/uid_map").write_text(f"{database_uid} {system_uid} 1\n")
     Path(f"/proc/{pid}/gid_map").write_text(f"{database_uid} {system_gid} 1\n")
     return os.open(f"/proc/{pid}/ns/user" ,os.O_RDONLY | os.O_CLOEXEC)
   finally:
-    os.write(release_write ,b"x")
-    os.close(release_write); os.close(ready_read)
+    os.write(release__write ,b"x")
+    os.close(release__write); os.close(ready__read)
     os.waitpid(pid ,0)
 
-def home_mount(source ,target ,database_uid ,system_uid ,system_gid):
+def home__mount(source ,target ,database_uid ,system_uid ,system_gid):
   """
   Mount source at target, nosuid and nodev, translating database_uid to
   system_uid and system_gid unless they are the same.
@@ -107,7 +107,7 @@ def home_mount(source ,target ,database_uid ,system_uid ,system_gid):
     attr = MountAttr()
     attr.attr_set = MOUNT_ATTR_NOSUID | MOUNT_ATTR_NODEV
     if not (database_uid == system_uid == system_gid):
-      userns_fd = idmap_namespace_fd(database_uid ,system_uid ,system_gid)
+      userns_fd = idmap_namespace__fd(database_uid ,system_uid ,system_gid)
       attr.attr_set |= MOUNT_ATTR_IDMAP
       attr.userns_fd = userns_fd
     check(LIBC.syscall(SYS_mount_setattr ,tree_fd ,b"" ,AT_EMPTY_PATH ,ctypes.byref(attr),
@@ -118,10 +118,10 @@ def home_mount(source ,target ,database_uid ,system_uid ,system_gid):
     os.close(tree_fd)
     if userns_fd is not None: os.close(userns_fd)
 
-def home_unmount(target):
+def home__unmount(target):
   check(LIBC.umount2(os.fsencode(str(target)) ,0) ,f"umount2 {target}")
 
-def mount_point_list():
+def mount_point__list():
   """
   Every mount point on the system, from /proc/self/mountinfo, where a space
   and a few other characters in a path are written as three-digit octal escapes.
@@ -134,14 +134,14 @@ def mount_point_list():
       result.append(raw.decode("utf-8" ,"replace"))
   return result
 
-def is_mount_point(path):
-  return os.path.abspath(str(path)) in set(mount_point_list())
+def is__mount_point(path):
+  return os.path.abspath(str(path)) in set(mount_point__list())
 
 
 # --------------------------------------------------------------------------------
 # files
 
-def immutable_set(path ,on):
+def immutable__set(path ,on):
   """
   Set or clear the immutable flag of a file or directory, as chattr +i and
   chattr -i do: an immutable file cannot be changed, renamed or deleted, even
@@ -161,7 +161,7 @@ def immutable_set(path ,on):
 # --------------------------------------------------------------------------------
 # sessions
 
-def session_system_uid_set():
+def session__system_uid__set():
   """
   The system uids that have a login session, from systemd-logind through
   sd_get_uids in libsystemd. Empty where logind is not running.

@@ -53,14 +53,14 @@ def account(name: str) -> Optional[Account]:
   return from_entry(entry) if entry else None
 
 def acting_account() -> Account:
-  return from_entry(sa.system_account_by_system_uid(os.getuid()))
+  return from_entry(sa.system_account__by_system_uid(os.getuid()))
 
-def is_person_account(entry) -> bool:
+def is__person_account(entry) -> bool:
   """
   A login account or a child account: an account of a person, not one of
   the system's own services.
   """
-  return sa.system_uid_min() <= entry.pw_uid != NOBODY_UID
+  return sa.system_uid__min() <= entry.pw_uid != NOBODY_UID
 
 def split_name(name: str) -> tuple[str ,str]:
   """
@@ -75,19 +75,19 @@ def split_name(name: str) -> tuple[str ,str]:
     return tuple(name.rsplit(OLD_SEPARATOR ,1))
   return ("root" ,name)
 
-def child_account_list(parent: str) -> list[Account]:
+def child_account__list(parent: str) -> list[Account]:
   """
   The child accounts of parent.
   """
   result = []
-  for entry in sa.system_account_list():
-    if not is_person_account(entry):
+  for entry in sa.system_account__list():
+    if not is__person_account(entry):
       continue
     if entry.pw_name != parent and split_name(entry.pw_name)[0] == parent:
       result.append(from_entry(entry))
   return result
 
-def child_account_name(parent: str ,short: str) -> str:
+def child_account__name(parent: str ,short: str) -> str:
   """
   The name for a new child account of parent. A short name may not hold the separator.
   """
@@ -107,30 +107,30 @@ def short_name(name: str) -> str:
 # --------------------------------------------------------------------------------
 # state
 
-STATE_IN_SESSION = "in session"
-STATE_IDLE = "idle"
-STATE_OFFLINE = "offline"
+STATE__IN_SESSION = "in session"
+STATE__IDLE = "idle"
+STATE__OFFLINE = "offline"
 
-def session_system_uid_set() -> set[int]:
+def session__system_uid__set() -> set[int]:
   """
   The system uids that have at least one session, as systemd-logind counts
   them: a desktop login, a console login, or a machinectl shell. Empty when
   the sessions cannot be read.
   """
   try:
-    return kernel.session_system_uid_set()
+    return kernel.session__system_uid__set()
   except KernelError:
     return set()
 
-def state(entry: Account ,session_set: set[int]) -> str:
+def state(entry: Account ,session__set: set[int]) -> str:
   """
   in session   the account has a session
   idle         no session, and its home is here
   offline      no session, and its home is not here: it is kept on a storage
                that is not attached
   """
-  if entry.uid in session_set:
-    return STATE_IN_SESSION
+  if entry.uid in session__set:
+    return STATE__IN_SESSION
   if not entry.home_exists:
-    return STATE_OFFLINE
-  return STATE_IDLE
+    return STATE__OFFLINE
+  return STATE__IDLE

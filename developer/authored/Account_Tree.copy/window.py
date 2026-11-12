@@ -20,7 +20,7 @@ import account_tree
 import authority
 import resource_kind
 
-GTK_MISSING = """\
+GTK__MISSING = """\
 Account-Tree window: GTK 4 for Python is not available to {python}
   {error}
 This Python needs the PyGObject package and the GTK 4 introspection data.
@@ -29,9 +29,9 @@ This Python needs the PyGObject package and the GTK 4 introspection data.
                             python3 -m pip install PyGObject
 """
 
-APPLICATION_ID = "com.ReasoningTechnology.AccountTree"
+APPLICATION_ID = "com.ReasoningTechnology.Account-Tree"
 PAD = 6
-STATE_REFRESH_SECONDS = 5
+STATE_REFRESH__SECONDS = 5
 
 
 def load_gtk():
@@ -52,7 +52,7 @@ def load_gtk():
 # Panel borders drawn in the theme's own text colour at partial strength, so
 # they stand out on a dark theme and a light one alike. The theme's default
 # frame border is faint on dark themes.
-PANEL_CSS = """
+PANEL__CSS = """
 frame.account-tree-panel > border {
   border: 1px solid alpha(currentColor ,0.45);
   border-radius: 6px;
@@ -66,9 +66,9 @@ def install_css(Gtk):
   from gi.repository import Gdk
   provider = Gtk.CssProvider()
   if hasattr(provider ,"load_from_string"):
-    provider.load_from_string(PANEL_CSS)
+    provider.load_from_string(PANEL__CSS)
   else:
-    provider.load_from_data(PANEL_CSS ,-1)
+    provider.load_from_data(PANEL__CSS ,-1)
   Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default() ,provider,
     Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
@@ -115,9 +115,9 @@ def build_window_class(Gtk ,GLib):
         button.connect("clicked" ,lambda b: action())
       return button
 
-    def row(self ,widget_list):
+    def row(self ,widget__list):
       box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL ,spacing=PAD)
-      for widget in widget_list:
+      for widget in widget__list:
         widget.set_hexpand(True)
         box.append(widget)
       return box
@@ -156,8 +156,8 @@ def build_window_class(Gtk ,GLib):
 
       frame ,panel = self.panel(f"Allocate {title}")
       grid = Gtk.Grid(column_spacing=PAD*2 ,row_spacing=PAD)
-      kind_list = dict(resource_kind.kind_list_by_group())[group]
-      for i ,kind in enumerate(kind_list):
+      kind__list = dict(resource_kind.kind__list__by_group())[group]
+      for i ,kind in enumerate(kind__list):
         action = None
         if kind.implemented:
           action = lambda k=kind: k.allocator(self.window_account ,self.acting_account)
@@ -189,12 +189,12 @@ def build_window_class(Gtk ,GLib):
       grid.set_column_homogeneous(True)
       #   row 0   Account         Authority   Control
       #   row 1   Child account   Allocate    Allocated
-      grid.attach(self.panel_identity() ,0 ,0 ,1 ,1)
-      grid.attach(self.panel_authority(),1 ,0 ,1 ,1)
-      grid.attach(self.panel_control()  ,2 ,0 ,1 ,1)
-      grid.attach(self.panel_child_account() ,0 ,1 ,1 ,1)
-      grid.attach(self.panel_allocate() ,1 ,1 ,1 ,1)
-      grid.attach(self.panel_allocated(),2 ,1 ,1 ,1)
+      grid.attach(self.panel__identity() ,0 ,0 ,1 ,1)
+      grid.attach(self.panel__authority(),1 ,0 ,1 ,1)
+      grid.attach(self.panel__control()  ,2 ,0 ,1 ,1)
+      grid.attach(self.panel__child_account() ,0 ,1 ,1 ,1)
+      grid.attach(self.panel__allocate() ,1 ,1 ,1 ,1)
+      grid.attach(self.panel__allocated(),2 ,1 ,1 ,1)
 
       # The panels can be taller than the screen allows a window to be. In a
       # scrolled window they keep their natural size and the window can be
@@ -206,7 +206,7 @@ def build_window_class(Gtk ,GLib):
     # ----------------------------------------------------------------------------
     # panels
 
-    def panel_identity(self):
+    def panel__identity(self):
       frame ,box = self.panel("Account")
       name = self.window_account.name
       parent = account_tree.parent_of(name)
@@ -222,20 +222,20 @@ def build_window_class(Gtk ,GLib):
       if line: box.append(line)
       return frame
 
-    def panel_allocate(self):
+    def panel__allocate(self):
       """
       One button per group of resources. Each opens the window for
       allocating resources of that group.
       """
       frame ,box = self.panel("Allocate")
-      for group ,kind_list in resource_kind.kind_list_by_group():
+      for group ,kind__list in resource_kind.kind__list__by_group():
         button = Gtk.Button(label=resource_kind.GROUP_TITLE[group])
-        button.set_tooltip_text(", ".join(kind.name for kind in kind_list))
+        button.set_tooltip_text(", ".join(kind.name for kind in kind__list))
         button.connect("clicked" ,lambda b ,g=group: self.open_allocate(g))
         box.append(button)
       return frame
 
-    def panel_child_account(self):
+    def panel__child_account(self):
       """
       One row per child account of the window account: a button with its
       short name, which opens its window, and its state. The states are read
@@ -243,14 +243,14 @@ def build_window_class(Gtk ,GLib):
       reopening the window.
       """
       frame ,box = self.panel("Child account")
-      child_list = account_tree.child_account_list(self.window_account.name)
-      if not child_list:
+      child__list = account_tree.child_account__list(self.window_account.name)
+      if not child__list:
         box.append(self.label("(none)" ,dim=True))
         return frame
       grid = Gtk.Grid(column_spacing=PAD*2 ,row_spacing=PAD)
-      self.child_state_label = []
-      session_set = account_tree.session_system_uid_set()
-      for i ,child in enumerate(child_list):
+      self.child_state__label = []
+      session__set = account_tree.session__system_uid__set()
+      for i ,child in enumerate(child__list):
         button = Gtk.Button(label=account_tree.short_name(child.name))
         button.get_child().set_xalign(0)
         button.set_hexpand(True)
@@ -259,20 +259,20 @@ def build_window_class(Gtk ,GLib):
           f"acting with the authority of {self.acting_account.name}")
         button.connect("clicked" ,lambda b ,c=child: self.open_child_account(c))
         grid.attach(button ,0 ,i ,1 ,1)
-        state = self.label(account_tree.state(child ,session_set))
+        state = self.label(account_tree.state(child ,session__set))
         grid.attach(state ,1 ,i ,1 ,1)
-        self.child_state_label.append((child ,state))
+        self.child_state__label.append((child ,state))
       box.append(grid)
-      GLib.timeout_add_seconds(STATE_REFRESH_SECONDS ,self.refresh_child_state)
+      GLib.timeout_add_seconds(STATE_REFRESH__SECONDS ,self.refresh_child_state)
       return frame
 
     def refresh_child_state(self):
-      session_set = account_tree.session_system_uid_set()
-      for child ,label in self.child_state_label:
-        label.set_text(account_tree.state(child ,session_set))
+      session__set = account_tree.session__system_uid__set()
+      for child ,label in self.child_state__label:
+        label.set_text(account_tree.state(child ,session__set))
       return self.get_visible()       # False stops the timer once the window is closed
 
-    def panel_allocated(self):
+    def panel__allocated(self):
       frame ,box = self.panel("Allocated")
       window_account = self.window_account
       state = "present" if window_account.home_exists else "not found"
@@ -280,7 +280,7 @@ def build_window_class(Gtk ,GLib):
       box.append(self.label("other resources: there is no resource database yet" ,dim=True))
       return frame
 
-    def panel_control(self):
+    def panel__control(self):
       """
       What can be done to the window account as a whole: its sessions, and
       its life.
@@ -301,7 +301,7 @@ def build_window_class(Gtk ,GLib):
       ]))
       return frame
 
-    def panel_authority(self):
+    def panel__authority(self):
       frame ,box = self.panel("Authority")
       acting = self.acting_account
       box.append(self.label(f"acting account   {acting.name}   (system uid {acting.uid})"))
@@ -330,7 +330,7 @@ def run(window_account ,acting_account):
   try:
     Gtk ,Gio ,GLib = load_gtk()
   except (ImportError ,ValueError) as error:
-    print(GTK_MISSING.format(python=sys.executable ,error=error) ,file=sys.stderr ,end="")
+    print(GTK__MISSING.format(python=sys.executable ,error=error) ,file=sys.stderr ,end="")
     return 1
 
   ResourceWindow = build_window_class(Gtk ,GLib)

@@ -26,7 +26,7 @@ touch, whether it holds the credential; a key that does not is passed over at
 once, and the key that does turns blue and waits for its button. The device
 whose attempt opened the partition is the key. plug records it in
 /run/Account-Tree/plugged/<storage name>.json and starts
-AccountTree-key@hidrawN.service, which is bound to the key's device unit:
+Account-Tree_key@hidrawN.service, which is bound to the key's device unit:
 when the key is pulled out, systemd stops that service, and its ExecStop runs
 unplug_key.
 
@@ -46,7 +46,7 @@ from database import Database ,DatabaseError
 import kernel
 import accounts_service
 from accounts_service import AccountsServiceError
-from common import SEPARATOR ,TREE_DIR_NAME ,act ,tree_dir_problem
+from common import SEPARATOR ,TREE_DIR__NAME ,act ,tree_dir__problem
 from system import open_system_database
 import same_account
 import storage
@@ -54,15 +54,15 @@ import storage
 RUN_DIR = Path("/run/Account-Tree")
 PLUGGED_DIR = RUN_DIR / "plugged"
 LOCK_PATH = RUN_DIR / "lock"
-MAPPER_PREFIX = "AccountTree_"
+MAPPER_PREFIX = "Account-Tree_"
 # instanced by the kernel name of the key's device, such as hidraw3
-KEY_UNIT_TEMPLATE = "AccountTree-key@{}.service"
+KEY_UNIT__TEMPLATE = "Account-Tree_key@{}.service"
 MOUNT_OPTION = "nosuid,nodev"
 # how long processes are given to end: after logind ends their sessions,
 # after SIGTERM, and after SIGKILL
-SESSION_WAIT_SECOND = 5
-TERM_WAIT_SECOND = 10
-KILL_WAIT_SECOND = 5
+SESSION_WAIT__SECOND = 5
+TERM_WAIT__SECOND = 10
+KILL_WAIT__SECOND = 5
 
 NAME_CHARACTER = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
 
@@ -80,7 +80,7 @@ def program(name ,*fallback):
     if os.access(f ,os.X_OK): return f
   return None
 
-def systemd_cryptsetup_path():
+def systemd_cryptsetup__path():
   return program("systemd-cryptsetup" ,"/usr/lib/systemd/systemd-cryptsetup" ,"/lib/systemd/systemd-cryptsetup")
 
 def run(argument ,input_text=None ,timeout=None):
@@ -97,8 +97,8 @@ def run(argument ,input_text=None ,timeout=None):
     return 124 ,"" ,f"{argument[0]}: no answer within {timeout} seconds"
 
 def last_line(text):
-  line_list = [l for l in text.strip().splitlines() if l.strip()]
-  return line_list[-1] if line_list else ""
+  line__list = [l for l in text.strip().splitlines() if l.strip()]
+  return line__list[-1] if line__list else ""
 
 def run_logged(log ,preview ,subject ,argument ,input_text=None ,timeout=None):
   """
@@ -167,13 +167,13 @@ def dm_name(kernel_name):
   except OSError:
     return None
 
-def dm_slave_list(kernel_name):
+def dm_slave__list(kernel_name):
   try:
     return sorted(p.name for p in Path(f"/sys/class/block/{kernel_name}/slaves").iterdir())
   except OSError:
     return []
 
-def dm_holder_list(kernel_name):
+def dm_holder__list(kernel_name):
   """
   The device-mapper devices opened on a partition, such as the one LUKS makes.
   """
@@ -199,7 +199,7 @@ def luks_uuid(device):
   status ,out ,_ = run(["cryptsetup" ,"luksUUID" ,str(device)])
   return out.strip() if status == 0 and out.strip() else None
 
-def luks_fido2_token_list(device):
+def luks_fido2_token__list(device):
   """
   The systemd-fido2 tokens of a LUKS2 header, as dictionaries, from
   cryptsetup luksDump --dump-json-metadata.
@@ -210,7 +210,7 @@ def luks_fido2_token_list(device):
   token = json.loads(out).get("tokens" ,{})
   return [t for t in token.values() if t.get("type") == "systemd-fido2"]
 
-def key_list():
+def key__list():
   """
   The FIDO2 keys plugged in: each hidraw device that udev marks
   ID_SECURITY_TOKEN=1, which systemd's 60-fido-id.rules sets for a device
@@ -223,7 +223,7 @@ def key_list():
       result.append(str(p))
   return result
 
-def is_device_unit_active(unit):
+def is__device_unit_active(unit):
   status ,out ,_ = run(["systemctl" ,"show" ,"--property=ActiveState" ,"--value" ,unit])
   return status == 0 and out.strip() == "active"
 
@@ -231,45 +231,45 @@ def is_device_unit_active(unit):
 # --------------------------------------------------------------------------------
 # records
 
-def registration_by_name(system_db ,name):
+def registration__by_name(system_db ,name):
   return system_db.row("SELECT * FROM storage_device WHERE storage_name = ? AND state = 'registered'" ,(name,))
 
-def registration_by_luks_uuid(system_db ,uuid_text):
+def registration__by_luks_uuid(system_db ,uuid_text):
   return system_db.row("SELECT * FROM storage_device WHERE luks_uuid = ? AND state = 'registered'" ,(uuid_text,))
 
-def registration_list(system_db):
+def registration__list(system_db):
   return system_db.rows("SELECT * FROM storage_device WHERE state = 'registered' ORDER BY storage_name")
 
 def plugged_path(name):
   return PLUGGED_DIR / f"{name}.json"
 
-def plugged_read(name):
+def plugged__read(name):
   try:
     return json.loads(plugged_path(name).read_text())
   except (OSError ,ValueError):
     return None
 
-def plugged_write(record):
+def plugged__write(record):
   PLUGGED_DIR.mkdir(mode=0o700 ,parents=True ,exist_ok=True)
   path = plugged_path(record["storage_name"])
   temporary = path.with_suffix(".tmp")
   temporary.write_text(json.dumps(record ,indent=2))
   os.replace(temporary ,path)
 
-def plugged_list():
+def plugged__list():
   try:
-    return [r for r in (plugged_read(p.stem) for p in sorted(PLUGGED_DIR.glob("*.json"))) if r]
+    return [r for r in (plugged__read(p.stem) for p in sorted(PLUGGED_DIR.glob("*.json"))) if r]
   except OSError:
     return []
 
 def tree_dir_of(registration):
-  return Path(registration["mount_dir"]) / "home" / TREE_DIR_NAME
+  return Path(registration["mount_dir"]) / "home" / TREE_DIR__NAME
 
-def system_map_row_list(system_db ,database_uuid):
-  return system_db.rows("SELECT * FROM system_map WHERE database_uuid = ? AND state = 'in use' ORDER BY system_account_name",
+def system_map_row__list(system_db ,database_uuid):
+  return system_db.rows("SELECT * FROM system_map WHERE database_uuid = ? AND state = 'in use' ORDER BY system_account__name",
                         (database_uuid,))
 
-def is_child_account(name):
+def is__child_account(name):
   return SEPARATOR in name
 
 
@@ -283,20 +283,20 @@ def register(tree_dir ,name ,log ,preview):
   itself: the LUKS2 partition under the mount, its LUKS uuid, the key enrolled
   in its header, and its database uuid.
   """
-  problem = tree_dir_problem(tree_dir)
+  problem = tree_dir__problem(tree_dir)
   if problem:
     log.error(str(tree_dir) ,problem); return
   tree_dir = Path(os.path.abspath(tree_dir))
   root = tree_dir.parent.parent
   if root == Path("/"):
     log.error(str(tree_dir) ,"is on the file system the system runs from, which is attached at boot and never unplugged"); return
-  if not kernel.is_mount_point(root):
+  if not kernel.is__mount_point(root):
     log.error(str(root) ,"not a mount point; register a storage while it is unlocked and mounted"); return
   source = mount_source(root)
   mapped = block_name(source) if source else None
   if not mapped or dm_name(mapped) is None:
     log.error(str(root) ,f"mounted from {source}, which is not an unlocked LUKS2 partition"); return
-  slave = dm_slave_list(mapped)
+  slave = dm_slave__list(mapped)
   if len(slave) != 1:
     log.error(str(root) ,f"{source} is made from {slave or 'nothing'}, not from one partition"); return
   partition = Path("/dev") / slave[0]
@@ -306,7 +306,7 @@ def register(tree_dir ,name ,log ,preview):
   log.line("found" ,str(partition) ,f"LUKS uuid {uuid_text}, unlocked as {dm_name(mapped)}, mounted at {root}")
 
   try:
-    token = luks_fido2_token_list(partition)
+    token = luks_fido2_token__list(partition)
   except ValueError as error:
     log.error(str(partition) ,str(error)); return
   if not token:
@@ -329,8 +329,8 @@ def register(tree_dir ,name ,log ,preview):
   storage_db = storage.open_storage_database(tree_dir ,log)
   if storage_db is None: return
 
-  by_name = registration_by_name(system_db ,name)
-  by_uuid = registration_by_luks_uuid(system_db ,uuid_text)
+  by_name = registration__by_name(system_db ,name)
+  by_uuid = registration__by_luks_uuid(system_db ,uuid_text)
   if by_uuid is not None:
     if by_uuid["storage_name"] == name and by_uuid["mount_dir"] == str(root) and by_uuid["database_uuid"] == storage_db.uuid():
       log.line("kept" ,name ,"already registered")
@@ -344,33 +344,33 @@ def register(tree_dir ,name ,log ,preview):
                 " VALUES (? ,? ,? ,? ,'registered' ,?)" ,(name ,uuid_text ,storage_db.uuid() ,str(root) ,database.now()))
     log.line("recorded" ,f"storage {name}" ,f"LUKS uuid {uuid_text}, database {storage_db.short()}, mounted at {root}")
 
-  if not system_map_row_list(system_db ,storage_db.uuid()):
+  if not system_map_row__list(system_db ,storage_db.uuid()):
     log.line("warning" ,name ,"none of its storage accounts is the same account as a system account here,"
              " so plugging it in mounts no home")
 
   import system_configuration
-  system_configuration.rule_write(system_db ,log ,preview)
+  system_configuration.rule__write(system_db ,log ,preview)
 
   # the storage is open now under another name, or under no Account-Tree record
-  plugged = plugged_read(name)
+  plugged = plugged__read(name)
   if plugged is None:
     plugged_record = {"storage_name": name ,"luks_uuid": uuid_text ,"partition": str(partition),
                       "mapper": dm_name(mapped) ,"mount_dir": str(root) ,"key": None ,"plugged": database.now()}
-    if not preview: plugged_write(plugged_record)
+    if not preview: plugged__write(plugged_record)
     log.line("recorded" ,str(plugged_path(name)) ,"unlocked outside Account-Tree, so no key is watched;"
              f" unplug it this time with 'Account-Tree_admin storage unplug {name}'")
 
 def unregister(name ,log ,preview):
   system_db = open_system_database(log)
   if system_db is None: return
-  r = registration_by_name(system_db ,name)
+  r = registration__by_name(system_db ,name)
   if r is None:
     log.error(name ,"no registered storage of that name"); return
   with system_db.transaction(f"unregister storage {name}" ,preview) as t:
     t.execute("UPDATE storage_device SET state = 'retired' ,retired = ? WHERE id = ?" ,(database.now() ,r["id"]))
   log.line("retired" ,f"storage {name}" ,f"LUKS uuid {r['luks_uuid']}")
   import system_configuration
-  system_configuration.rule_write(system_db ,log ,preview)
+  system_configuration.rule__write(system_db ,log ,preview)
 
 
 # --------------------------------------------------------------------------------
@@ -389,7 +389,7 @@ def plug_all(log ,preview):
     system_db = open_system_database(log)
     if system_db is None: return
     found = False
-    for r in registration_list(system_db):
+    for r in registration__list(system_db):
       device = Path("/dev/disk/by-uuid") / r["luks_uuid"]
       if not device.exists(): continue
       found = True
@@ -405,7 +405,7 @@ def plug_locked(device ,passphrase ,log ,preview):
   uuid_text = luks_uuid(device)
   if uuid_text is None:
     log.line("skipped" ,str(device) ,"not a LUKS partition"); return
-  r = registration_by_luks_uuid(system_db ,uuid_text)
+  r = registration__by_luks_uuid(system_db ,uuid_text)
   if r is None:
     log.line("skipped" ,str(device) ,f"LUKS uuid {uuid_text} is not a registered storage"); return
   name = r["storage_name"]
@@ -413,11 +413,11 @@ def plug_locked(device ,passphrase ,log ,preview):
   mount_dir = Path(r["mount_dir"])
 
   # unlock, unless it is unlocked already
-  holder = [h for h in dm_holder_list(partition.name) if dm_name(h)]
+  holder = [h for h in dm_holder__list(partition.name) if dm_name(h)]
   key_used = None
   if holder:
     mapper = dm_name(holder[0])
-    previous = plugged_read(name)
+    previous = plugged__read(name)
     key_used = previous.get("key") if previous and previous.get("mapper") == mapper else None
     log.line("kept" ,f"storage {name}" ,f"already unlocked as {mapper}")
   else:
@@ -432,12 +432,12 @@ def plug_locked(device ,passphrase ,log ,preview):
           log.error(f"storage {name}" ,f"cryptsetup open failed, status {status}"); return
         log.line("unlocked" ,f"storage {name}" ,f"as {mapper}, by passphrase; no key is watched")
     else:
-      key_used = key_unlock(partition ,mapper ,name ,log ,preview)
+      key_used = key__unlock(partition ,mapper ,name ,log ,preview)
       if key_used is None: return
 
   # mount
   mapped_device = Path("/dev/mapper") / mapper
-  if kernel.is_mount_point(mount_dir):
+  if kernel.is__mount_point(mount_dir):
     log.line("kept" ,str(mount_dir) ,"already mounted")
   else:
     if not mount_dir.exists():
@@ -449,27 +449,27 @@ def plug_locked(device ,passphrase ,log ,preview):
 
   record = {"storage_name": name ,"luks_uuid": uuid_text ,"partition": str(partition) ,"mapper": mapper,
             "mount_dir": str(mount_dir) ,"key": key_used ,"plugged": database.now()}
-  if not preview: plugged_write(record)
+  if not preview: plugged__write(record)
 
   # attach, and offer its login accounts on the login screen
   tree_dir = tree_dir_of(r)
   error_before = log.error_count
   storage.attach(str(tree_dir) ,False ,log ,preview)
   if log.error_count == error_before:
-    is_hidden_set_all(system_db ,r["database_uuid"] ,False ,log ,preview)
+    is__hidden__set_all(system_db ,r["database_uuid"] ,False ,log ,preview)
 
   if key_used:
-    key_watch(key_used ,name ,log ,preview)
+    key__watch(key_used ,name ,log ,preview)
 
-def key_unlock(partition ,mapper ,name ,log ,preview):
+def key__unlock(partition ,mapper ,name ,log ,preview):
   """
   Offer the partition to each key plugged in, one at a time. Returns the
   device of the key that opened it, or None.
   """
-  tool = systemd_cryptsetup_path()
+  tool = systemd_cryptsetup__path()
   if tool is None:
     log.error(f"storage {name}" ,"systemd-cryptsetup is not installed"); return None
-  key = key_list()
+  key = key__list()
   if not key:
     log.line("waiting" ,f"storage {name}" ,"no key is plugged in; plugging one in unlocks it"); return None
   if preview:
@@ -487,41 +487,41 @@ def key_unlock(partition ,mapper ,name ,log ,preview):
   log.error(f"storage {name}" ,"no key plugged in opened it")
   return None
 
-def key_watch(key ,name ,log ,preview):
+def key__watch(key ,name ,log ,preview):
   """
   Start the service bound to the key's device unit, so that pulling the key
   out unplugs what it unlocked.
   """
   kernel_name = os.path.basename(key)
   device_unit = f"dev-{kernel_name}.device"
-  unit = KEY_UNIT_TEMPLATE.format(kernel_name)
-  if not preview and not is_device_unit_active(device_unit):
+  unit = KEY_UNIT__TEMPLATE.format(kernel_name)
+  if not preview and not is__device_unit_active(device_unit):
     log.line("warning" ,f"storage {name}" ,f"systemd has no {device_unit}, so pulling the key out will not unplug it;"
              " run 'Account-Tree_admin system configure', which tags keys for systemd")
     return
   if not run_logged(log ,preview ,unit ,["systemctl" ,"start" ,"--no-block" ,unit]): return
   log.line("watching" ,key ,f"{unit}; pulling the key out unplugs {name}")
 
-def is_hidden_set_all(system_db ,database_uuid ,hidden ,log ,preview):
+def is__hidden__set_all(system_db ,database_uuid ,hidden ,log ,preview):
   """
   Offer or hide the storage's login accounts on the login screen. Child
   accounts are entered from their parent, never through the login screen, and
   are always hidden.
   """
   changed = False
-  for m in system_map_row_list(system_db ,database_uuid):
-    name = m["system_account_name"]
-    value = hidden or is_child_account(name)
+  for m in system_map_row__list(system_db ,database_uuid):
+    name = m["system_account__name"]
+    value = hidden or is__child_account(name)
     if preview:
       log.line("set" ,name ,f"SystemAccount={'true' if value else 'false'} for the login screen"); continue
     try:
-      is_changed = accounts_service.is_hidden_set(name ,value)
+      is__changed = accounts_service.is__hidden__set(name ,value)
     except AccountsServiceError as error:
       log.error(name ,str(error)); continue
-    if is_changed is None:
+    if is__changed is None:
       log.line("skipped" ,name ,"this system has no AccountsService"); return
     how = ("hidden from" if value else "offered on") + " the login screen"
-    if is_changed:
+    if is__changed:
       log.line("set" ,name ,how); changed = True
     else:
       log.line("kept" ,name ,how)
@@ -545,7 +545,7 @@ def unplug_key(key ,log ,preview):
   if not key.startswith("/"): key = "/" + key
   with Lock():
     found = False
-    for record in plugged_list():
+    for record in plugged__list():
       if record.get("key") == key:
         found = True
         unplug_locked(record["storage_name"] ,log ,preview)
@@ -559,19 +559,19 @@ def registration_of(system_db ,spec):
   holds, is found even after the drive is gone, when the device can no longer
   be read.
   """
-  r = registration_by_name(system_db ,spec)
+  r = registration__by_name(system_db ,spec)
   if r is not None: return r
   path = Path(spec)
   # the drive's service names its partition, /dev/sdb1, which is gone by the
   # time a drive pulled out is unplugged; the runtime record remembers it
-  for record in plugged_list():
+  for record in plugged__list():
     if record.get("partition") == str(path):
-      return registration_by_name(system_db ,record["storage_name"])
+      return registration__by_name(system_db ,record["storage_name"])
   if path.parent == Path("/dev/disk/by-uuid"):
-    return registration_by_luks_uuid(system_db ,path.name)
+    return registration__by_luks_uuid(system_db ,path.name)
   if path.exists():
     uuid_text = luks_uuid(path)
-    if uuid_text: return registration_by_luks_uuid(system_db ,uuid_text)
+    if uuid_text: return registration__by_luks_uuid(system_db ,uuid_text)
   return None
 
 def unplug_locked(spec ,log ,preview):
@@ -584,31 +584,31 @@ def unplug_locked(spec ,log ,preview):
     log.line("skipped" ,str(spec) ,"nothing Account-Tree plugged in is on it"); return
   name = r["storage_name"]
   mount_dir = Path(r["mount_dir"])
-  record = plugged_read(name)
+  record = plugged__read(name)
   mapper = record["mapper"] if record else MAPPER_PREFIX + name
-  row_list = system_map_row_list(system_db ,r["database_uuid"])
-  home_mounted = [m for m in row_list if kernel.is_mount_point(Path("/home") / m["system_account_name"])]
-  is_open = Path(f"/dev/mapper/{mapper}").exists()
-  if not (record or home_mounted or is_open or kernel.is_mount_point(mount_dir)):
+  row__list = system_map_row__list(system_db ,r["database_uuid"])
+  home_mounted = [m for m in row__list if kernel.is__mount_point(Path("/home") / m["system_account__name"])]
+  is__open = Path(f"/dev/mapper/{mapper}").exists()
+  if not (record or home_mounted or is__open or kernel.is__mount_point(mount_dir)):
     log.line("skipped" ,f"storage {name}" ,"not plugged in"); return
 
   # 1. end every process of its accounts, whoever is at the console
-  process_end([m["system_uid"] for m in row_list] ,log ,preview)
+  process__end([m["system_uid"] for m in row__list] ,log ,preview)
 
   # 2. unmount their homes, and record the detach while the storage can be read
   for m in home_mounted:
-    target = Path("/home") / m["system_account_name"]
-    mount_remove(target ,log ,preview)
-  detach_record(system_db ,r ,log ,preview)
+    target = Path("/home") / m["system_account__name"]
+    mount__remove(target ,log ,preview)
+  detach__record(system_db ,r ,log ,preview)
 
   # 3. hide its accounts from the login screen
-  is_hidden_set_all(system_db ,r["database_uuid"] ,True ,log ,preview)
+  is__hidden__set_all(system_db ,r["database_uuid"] ,True ,log ,preview)
 
   # 4. unmount the storage and lock it
-  if kernel.is_mount_point(mount_dir):
+  if kernel.is__mount_point(mount_dir):
     if not preview: os.sync()
-    mount_remove(mount_dir ,log ,preview)
-  if is_open:
+    mount__remove(mount_dir ,log ,preview)
+  if is__open:
     if run_logged(log ,preview ,mapper ,["cryptsetup" ,"close" ,mapper]):
       log.line("locked" ,f"storage {name}" ,f"{mapper} closed")
     elif run_logged(log ,preview ,mapper ,["cryptsetup" ,"close" ,"--deferred" ,mapper]):
@@ -631,7 +631,7 @@ def unplug_locked(spec ,log ,preview):
     except FileNotFoundError:
       pass
 
-def process_uid_set(pid_path):
+def process_uid__set(pid_path):
   """
   The real, effective, saved and file system uids of a process.
   """
@@ -643,7 +643,7 @@ def process_uid_set(pid_path):
     pass
   return set()
 
-def is_zombie(pid_path):
+def is__zombie(pid_path):
   """
   Whether a process has ended and waits only for its parent to collect its
   exit status. It holds no file and no mount, so it is not waited for.
@@ -655,49 +655,49 @@ def is_zombie(pid_path):
   # the command name is in parentheses and can hold spaces; the state follows it
   return stat_text[stat_text.rindex(")") + 2:].startswith("Z")
 
-def process_list(uid_set):
+def process__list(uid__set):
   result = []
   for p in Path("/proc").iterdir():
-    if p.name.isdigit() and process_uid_set(p) & uid_set and not is_zombie(p):
+    if p.name.isdigit() and process_uid__set(p) & uid__set and not is__zombie(p):
       result.append(int(p.name))
   return result
 
-def process_wait(uid_set ,second):
+def process__wait(uid__set ,second):
   deadline = time.monotonic() + second
   while time.monotonic() < deadline:
-    if not process_list(uid_set): return []
+    if not process__list(uid__set): return []
     time.sleep(0.2)
-  return process_list(uid_set)
+  return process__list(uid__set)
 
-def process_end(uid_list ,log ,preview):
+def process__end(uid__list ,log ,preview):
   """
   End every process running under the uids: logind ends their sessions; what
   remains is sent SIGTERM, and what remains after that, SIGKILL.
   """
-  uid_set = set(uid_list)
-  if not uid_set: return
-  pid = process_list(uid_set)
+  uid__set = set(uid__list)
+  if not uid__set: return
+  pid = process__list(uid__set)
   if not pid:
     log.line("kept" ,"processes" ,"none runs under its accounts"); return
   if preview:
     log.line("ended" ,f"{len(pid)} processes" ,"of its accounts"); return
-  for u in sorted(uid_set):
+  for u in sorted(uid__set):
     run(["loginctl" ,"terminate-user" ,str(u)])
-  remaining = process_wait(uid_set ,SESSION_WAIT_SECOND)
-  for sig ,wait in ((signal.SIGTERM ,TERM_WAIT_SECOND) ,(signal.SIGKILL ,KILL_WAIT_SECOND)):
+  remaining = process__wait(uid__set ,SESSION_WAIT__SECOND)
+  for sig ,wait in ((signal.SIGTERM ,TERM_WAIT__SECOND) ,(signal.SIGKILL ,KILL_WAIT__SECOND)):
     if not remaining: break
     for p in remaining:
       try:
         os.kill(p ,sig)
       except ProcessLookupError:
         pass
-    remaining = process_wait(uid_set ,wait)
+    remaining = process__wait(uid__set ,wait)
   if remaining:
     log.error("processes" ,f"{len(remaining)} still run under its accounts: {', '.join(map(str ,remaining[:8]))}")
   else:
     log.line("ended" ,f"{len(pid)} processes" ,"of its accounts")
 
-def mount_remove(target ,log ,preview):
+def mount__remove(target ,log ,preview):
   """
   Unmount target; when something still holds it open, detach it from the
   tree so that no one new can reach it, and the kernel finishes when the last
@@ -713,7 +713,7 @@ def mount_remove(target ,log ,preview):
   log.error(str(target) ,f"umount failed: {os.strerror(kernel.ctypes.get_errno())}")
   return False
 
-def detach_record(system_db ,r ,log ,preview):
+def detach__record(system_db ,r ,log ,preview):
   """
   Record the detach in both databases while the storage can still be read.
   When the drive has been pulled out first, the storage database cannot be
@@ -722,9 +722,9 @@ def detach_record(system_db ,r ,log ,preview):
   tree_dir = tree_dir_of(r)
   storage_db = None
   try:
-    storage_db = Database.open(database.storage_database_path(tree_dir) ,"storage")
-    same_account.system_seen_record(storage_db ,system_db.uuid() ,log ,preview)
-    series = same_account.head_seen_record(system_db ,storage_db ,"detached" ,None ,preview)
+    storage_db = Database.open(database.storage_database__path(tree_dir) ,"storage")
+    same_account.system_seen__record(storage_db ,system_db.uuid() ,log ,preview)
+    series = same_account.head_seen__record(system_db ,storage_db ,"detached" ,None ,preview)
     log.line("recorded" ,f"database {storage_db.short()} detached" ,f"head at series {series} remembered here")
   except (OSError ,sqlite3.Error ,DatabaseError) as error:
     log.line("skipped" ,f"storage {r['storage_name']}" ,f"the detach was not recorded, the storage cannot be read: {error}")

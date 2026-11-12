@@ -32,13 +32,13 @@ def system_account(name):
   except KeyError:
     return None
 
-def system_account_by_system_uid(system_uid):
+def system_account__by_system_uid(system_uid):
   try:
     return pwd.getpwuid(system_uid)
   except KeyError:
     return None
 
-def system_account_list():
+def system_account__list():
   return sorted(pwd.getpwall() ,key=lambda e: e.pw_name)
 
 def system_group(name):
@@ -47,13 +47,13 @@ def system_group(name):
   except KeyError:
     return None
 
-def system_group_by_system_gid(system_gid):
+def system_group__by_system_gid(system_gid):
   try:
     return grp.getgrgid(system_gid)
   except KeyError:
     return None
 
-def login_defs_value(key ,default):
+def login_defs__value(key ,default):
   try:
     for line in Path("/etc/login.defs").read_text(encoding="utf-8").splitlines():
       field = line.split()
@@ -63,12 +63,12 @@ def login_defs_value(key ,default):
     pass
   return default
 
-def system_uid_min() -> int:
+def system_uid__min() -> int:
   """
   The lowest system uid of an account a person logs in to; below it are the
   accounts of the system's own services.
   """
-  return login_defs_value("UID_MIN" ,1000)
+  return login_defs__value("UID_MIN" ,1000)
 
 
 # --------------------------------------------------------------------------------
@@ -79,7 +79,7 @@ def run_shadow(command):
   if result.returncode != 0:
     raise SystemAccountError(f"{' '.join(command)}: {result.stderr.strip() or 'exit ' + str(result.returncode)}")
 
-def system_account_make(name ,system_uid):
+def system_account__make(name ,system_uid):
   """
   Make a system account and its own group, both numbered system_uid, with its
   home at /home/<name>, which is not made: attach mounts the home there.
@@ -90,7 +90,7 @@ def system_account_make(name ,system_uid):
   run_shadow(["useradd" ,"--badname" ,"-M" ,"-d" ,str(HOME / name) ,"-s" ,"/bin/bash",
               "-u" ,str(system_uid) ,"-U" ,name])
 
-def system_account_delete(name):
+def system_account__delete(name):
   """
   Delete a system account, leaving its home alone: the home belongs to the
   storage it is mounted from.
@@ -100,7 +100,7 @@ def system_account_delete(name):
   """
   run_shadow(["userdel" ,name])
 
-def system_group_delete(name):
+def system_group__delete(name):
   """
   Delete a system group.
 
