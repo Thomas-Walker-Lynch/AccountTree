@@ -14,7 +14,9 @@ carries, its storage name and the directory it is mounted at.
                                 the key that unlocked it
   plug_all()                    plug every registered storage present and locked
   unplug(spec)                  end its accounts' processes, unmount their homes,
-                                hide its accounts, unmount, lock, power off
+                                delete the system accounts Account-Tree made for
+                                them, hide the adopted ones, unmount, lock,
+                                power off
   unplug_key(key)               unplug every storage that key unlocked
 
 Which key unlocked a storage. The LUKS2 header holds a systemd-fido2 token:
@@ -726,10 +728,22 @@ def unplug_locked(spec ,log ,preview):
     mount__remove(dirpa__target ,log ,preview)
   detach__record(system_db ,r ,log ,preview)
 
-  # 3. hide its accounts from the login screen
+  # 3. delete the system accounts Account-Tree made for its accounts, keeping
+  # what plugging it in again needs to make them again; free their uids
+  count_of__unplugged = 0
+  for m in list__row:
+    if m["origin"] != "made": continue
+    if not preview and Kernel.is__mount_point(Path("/home") / m["system_account__name"]):
+      log.line("kept" ,m["system_account__name"] ,"its home is still mounted, so its system account is not deleted"); continue
+    if SameAccount.same_account__unplug(system_db ,m ,log ,preview): count_of__unplugged += 1
+  if count_of__unplugged and not preview:
+    # accounts-daemon drops a deleted account from the login screen when it reloads
+    run(["systemctl" ,"try-restart" ,"accounts-daemon.service"])
+
+  # 4. hide its adopted accounts, which stay, from the login screen
   is__hidden__set_all(system_db ,r["database_uuid"] ,True ,log ,preview)
 
-  # 4. unmount the storage and lock it
+  # 5. unmount the storage and lock it
   if Kernel.is__mount_point(dirpa__mount):
     if not preview: os.sync()
     mount__remove(dirpa__mount ,log ,preview)
@@ -739,7 +753,7 @@ def unplug_locked(spec ,log ,preview):
     elif run_logged(log ,preview ,mapper ,["cryptsetup" ,"close" ,"--deferred" ,mapper]):
       log.line("locked" ,f"storage {name}" ,f"{mapper} closes when the last file open on it is closed")
 
-  # 5. power the drive off, so that its light going out says it is safe to pull
+  # 6. power the drive off, so that its light going out says it is safe to pull
   partition = Path(record["partition"]) if record else Path("/dev/disk/by-uuid") / r["luks_uuid"]
   if partition.exists():
     disk = disk_of(block_name(partition))

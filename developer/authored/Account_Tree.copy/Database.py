@@ -119,6 +119,12 @@ class Database:
     connection.row_factory = sqlite3.Row
     database = cls(connection ,filep__database ,kind)
     database.check_standard()
+    if kind == "system":
+      not_null = {r["name"]: r["notnull"] for r in connection.execute("PRAGMA table_info(system_map)")}
+      if not_null.get("system_uid"):
+        raise DatabaseError(f"{filep__database} was made before system accounts were deleted at unplug, and its"
+                            " system map cannot record that; with the code that made it, run storage delete for"
+                            " each storage and then system delete, and make it again")
     added = schema_added__text(kind)
     if added:
       connection.executescript(added)

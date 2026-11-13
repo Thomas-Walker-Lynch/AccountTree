@@ -65,8 +65,10 @@ Commands:
                                  storage account is used on no system until
                                  is-same-account names a system account for it
   attach <dirp_storage> [branch]
-                                 mount the home of each storage account the system map
-                                 names at /home/<system account>, nosuid and nodev. A
+                                 make again, with the next free system uids, the system
+                                 accounts storage unplug deleted; then mount the home of
+                                 each storage account the system map names at
+                                 /home/<system account>, nosuid and nodev. A
                                  storage that went back to an older copy, or sideways
                                  to a branch, is attached with a warning. branch first
                                  makes the storage a branch of its own, with system
@@ -122,9 +124,14 @@ Commands:
   storage show <dirp_storage>    print the storage database, and verify it
   storage unplug <storage name or device>
                                  end every process of its accounts, whoever is at the
-                                 console, unmount their homes, hide them from the login
-                                 screen, unmount and lock the storage, and power the
-                                 drive off: once its light is out it is safe to pull
+                                 console, and unmount their homes. Delete the system
+                                 accounts Account-Tree made for them, with the files
+                                 they left in /tmp, /var/tmp and /dev/shm, freeing their
+                                 system uids; their passwords, shells and groups are
+                                 kept in the system database for the next plug. Hide
+                                 adopted ones from the login screen. Unmount and lock
+                                 the storage, and power the drive off: once its light
+                                 is out it is safe to pull
   storage unplug key <key device>
                                  unplug every storage the key at /dev/hidrawN unlocked.
                                  Run by Account-Tree_key@.service when the key is pulled

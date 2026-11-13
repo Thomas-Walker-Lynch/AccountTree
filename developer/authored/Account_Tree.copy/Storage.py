@@ -37,6 +37,10 @@ def open_storage_database(dirp__storage ,log):
     log.error(str(dirp__storage) ,problem); return None
   return Database.Database.open(Database.fpa__storage_database(dirpa__Account_Tree(dirp__storage)) ,"storage")
 
+def system_map__unplugged(system_db ,storage_db):
+  return system_db.rows("SELECT * FROM system_map WHERE database_uuid = ? AND state = 'unplugged' ORDER BY system_account__name",
+                        (storage_db.uuid(),))
+
 def system_map__in_use(system_db ,storage_db):
   return system_db.rows("SELECT * FROM system_map WHERE database_uuid = ? AND state = 'in use' ORDER BY system_account__name",
                         (storage_db.uuid(),))
@@ -86,14 +90,17 @@ def storage__show(dirp__storage):
   print(f"made      {d['created']}")
   print(f"changed   {db.last_change()}")
   print("standard  " + " ".join(r["version"] for r in db.rows("SELECT version FROM standard")))
-  mapped = {}
+  mapped ,unplugged = {} ,{}
   if Database.FPA__SYSTEM_DATABASE.is_file():
     system_db = Database.Database.open(Database.FPA__SYSTEM_DATABASE ,"system")
     mapped = {m["database_uid"]: m for m in system_map__in_use(system_db ,db)}
+    unplugged = {m["database_uid"]: m for m in system_map__unplugged(system_db ,db)}
   print("storage accounts")
   for a in db.rows("SELECT * FROM account ORDER BY name"):
     m = mapped.get(a["database_uid"])
     here = f"system account {m['system_account__name']}, system uid {m['system_uid']}" if m else "no system account here"
+    if not m and a["database_uid"] in unplugged:
+      here = f"system account {unplugged[a['database_uid']]['system_account__name']} when plugged in"
     print(f"  {a['name']:<28}database uid {a['database_uid']:<12}{a['state']:<10}{here}")
   for n in db.rows("SELECT * FROM system_seen ORDER BY first"):
     print(f"seen by   system {n['system_uuid']}  first {n['first']}  last {n['last']}")
@@ -119,7 +126,9 @@ def storage__delete(dirp__storage ,delete_account_data ,forget_other_systems ,lo
   db = Database.Database.open(filep__database ,"storage")
   system_db = Database.Database.open(Database.FPA__SYSTEM_DATABASE ,"system") if Database.FPA__SYSTEM_DATABASE.is_file() else None
   this_system__uuid = system_db.uuid() if system_db else None
-  in_use = system_map__in_use(system_db ,db) if system_db else []
+  # the rows of this database here, unplugged ones too, which delete retires
+  in_use = system_db.rows("SELECT * FROM system_map WHERE database_uuid = ? AND state IN ('in use' ,'unplugged')"
+                          " ORDER BY system_account__name" ,(db.uuid(),)) if system_db else []
   account_name = {a["database_uid"]: a["name"] for a in db.rows("SELECT database_uid ,name FROM account")}
 
   # ---- checks
@@ -331,6 +340,12 @@ def attach(dirp__storage ,branch ,log ,preview):
     return
   log.line("found" ,f"database {db.short()}" ,f"series {db.head()[0]}, chain verified")
 
+  # a removable storage plugged in again: make again the system accounts its
+  # unplug deleted, before anything reads the rows in use
+  set__promised = set()
+  count_of__replugged = sum(1 for m in system_map__unplugged(system_db ,db)
+                            if SameAccount.same_account__replug(system_db ,m ,log ,preview ,set__promised))
+
   if branch:
     storage__branch(system_db ,db ,dirp__Account_Tree ,log ,preview)
     if preview:
@@ -338,8 +353,12 @@ def attach(dirp__storage ,branch ,log ,preview):
       return
 
   in_use = system_map__in_use(system_db ,db)
+  if preview and count_of__replugged:
+    # their rows are put back in use only when the preview's changes are made
+    log.line("mounted" ,f"the homes of those {count_of__replugged}" ,"at /home/<system account>, once their system accounts are made")
   if not in_use:
-    log.line("skipped" ,str(dirp__Account_Tree) ,"no storage account of this database is the same account as a system account here")
+    if not (preview and count_of__replugged):
+      log.line("skipped" ,str(dirp__Account_Tree) ,"no storage account of this database is the same account as a system account here")
     return
 
   # the same database attached twice would mount two homes at one place

@@ -43,7 +43,7 @@ class Log:
     "retired": "would retire" ,"mapped": "would map" ,"branched": "would branch",
     "unlocked": "would unlock" ,"locked": "would lock" ,"powered off": "would power off",
     "ended": "would end" ,"watching": "would watch" ,"written": "would write" ,"reloaded": "would reload",
-    "frozen": "would freeze" ,"thawed": "would thaw",
+    "frozen": "would freeze" ,"thawed": "would thaw" ,"unplugged": "would unplug" ,"forgotten": "would forget",
   }
 
   def __init__(self ,preview):
@@ -55,7 +55,8 @@ class Log:
     self.count[tag] = self.count.get(tag ,0) + 1
     if self.preview:
       tag = self.PREVIEW_TAG.get(tag ,tag)
-    text = f"  {tag:<{self.TAG_WIDTH}}{subject}"
+    # a tag as long as the column, such as 'would delete system account', keeps two spaces after it
+    text = f"  {tag:<{self.TAG_WIDTH}}" + ("  " if len(tag) >= self.TAG_WIDTH else "") + subject
     if reason: text += f"  ({reason})"
     print(text)
 

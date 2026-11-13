@@ -125,7 +125,7 @@ def rule_text(system_db):
     "# the device a storage is unlocked as: kept out of the file manager",
     'SUBSYSTEM=="block", ENV{DM_NAME}=="Account-Tree_*", ENV{UDISKS_IGNORE}="1"',
   ]
-  for r in list__registration(system_db):
+  for r in (list__registration(system_db) if system_db is not None else []):
     line += ["" ,f"# storage {r['storage_name']}, mounted at {r['dirpa__mount']}",
       f'SUBSYSTEM=="block", ACTION!="remove", ENV{{ID_FS_UUID}}=="{r["luks_uuid"]}", ENV{{UDISKS_IGNORE}}="1",'
       ' TAG+="systemd", ENV{SYSTEMD_WANTS}+="Account-Tree_plug@%k.service"']
@@ -163,9 +163,20 @@ def rule__write(system_db ,log ,preview):
   return True
 
 def configure(log ,preview):
+  """
+  Write the units and the udev rule. The units need no system database, so
+  that the installer, run before system make, puts them in place; the rule
+  then names no storage until storage register adds one.
+  """
   from System import open_system_database
-  system_db = open_system_database(log)
-  if system_db is None: return
+  import Database
+  system_db = None
+  if Database.FPA__SYSTEM_DATABASE.is_file():
+    system_db = open_system_database(log)
+    if system_db is None: return
+  else:
+    log.line("skipped" ,str(Database.FPA__SYSTEM_DATABASE) ,"there is none yet, so the udev rule names no storage;"
+             " storage register adds each one")
   admin = fpa__admin()
   problem = path_changer(admin)
   if problem:

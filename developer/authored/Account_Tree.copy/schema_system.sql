@@ -36,24 +36,36 @@ CREATE TABLE system_uid__range (
 );
 
 -- The system map: each system account that is the same account as a storage
--- account. A row is never deleted; when the two stop being the same account it
--- is retired. A system uid in any row, in use or retired, is never given to a
--- system account Account-Tree makes. A system account Account-Tree adopted, one
--- that existed before, may be mapped again after its row is retired.
+-- account, the introduction of that storage account to this system. A row is
+-- never deleted; when the two stop being the same account it is retired.
+--
+-- A row Account-Tree made the system account for is unplugged while its
+-- removable storage is out: the system account is deleted, with the files it
+-- left in the places listed in SameAccount.LIST__DIRPA__LOCAL, and its system
+-- uid and gid are freed. What the system account had that the storage does
+-- not carry, its password, shell, comment and supplementary groups, is kept
+-- in system_account__saved, so that plugging the storage in again makes the
+-- system account again as it was, with the next free system uid.
+--
+-- A system uid in a row in use or retired is never given to a system account
+-- Account-Tree makes. A system account Account-Tree adopted, one that existed
+-- before, stays when its storage is unplugged, and may be mapped again after
+-- its row is retired.
 CREATE TABLE system_map (
-  id                   INTEGER PRIMARY KEY,
-  system_uid           INTEGER NOT NULL,
-  system_gid           INTEGER NOT NULL,
-  system_account__name  TEXT NOT NULL,   -- kept so that a system account lost from /etc/passwd can be made again
-  database_uuid        TEXT NOT NULL,
-  database_uid         INTEGER NOT NULL,
-  origin               TEXT NOT NULL CHECK (origin IN ('made' ,'adopted')),
-  state                TEXT NOT NULL CHECK (state IN ('in use' ,'retired')),
-  mapped               TEXT NOT NULL,
-  retired              TEXT
+  id                    INTEGER PRIMARY KEY,
+  system_uid            INTEGER,          -- NULL while unplugged
+  system_gid            INTEGER,          -- NULL while unplugged
+  system_account__name  TEXT NOT NULL,
+  database_uuid         TEXT NOT NULL,
+  database_uid          INTEGER NOT NULL,
+  origin                TEXT NOT NULL CHECK (origin IN ('made' ,'adopted')),
+  state                 TEXT NOT NULL CHECK (state IN ('in use' ,'unplugged' ,'retired')),
+  mapped                TEXT NOT NULL,
+  retired               TEXT,
+  CHECK (state = 'retired' OR (state = 'unplugged') = (system_uid IS NULL))
 );
 CREATE UNIQUE INDEX system_map__system_uid__in_use ON system_map(system_uid) WHERE state = 'in use';
-CREATE UNIQUE INDEX system_map__storage_account__in_use ON system_map(database_uuid ,database_uid) WHERE state = 'in use';
+CREATE UNIQUE INDEX system_map__storage_account__introduced ON system_map(database_uuid ,database_uid) WHERE state IN ('in use' ,'unplugged');
 
 -- Every head of each storage database this system has seen: when a storage
 -- account of it was made the same account as a system account, and at each
@@ -71,10 +83,11 @@ CREATE TABLE storage_head__seen (
 );
 
 -- How many child accounts each system account may have below it. A system
--- account with no row may have none.
+-- account with no row may have none. It is kept by name, because the system
+-- uid of an account Account-Tree made changes each time its storage is plugged in.
 CREATE TABLE account_limit (
-  system_uid  INTEGER PRIMARY KEY,
-  maximum     INTEGER NOT NULL
+  system_account__name  TEXT PRIMARY KEY,
+  maximum               INTEGER NOT NULL
 );
 
 -- Each removable storage registered here: the LUKS2 partition that holds it,
@@ -96,6 +109,35 @@ CREATE TABLE IF NOT EXISTS storage_device (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS storage_device__luks_registered ON storage_device(luks_uuid) WHERE state = 'registered';
 CREATE UNIQUE INDEX IF NOT EXISTS storage_device__name_registered ON storage_device(storage_name) WHERE state = 'registered';
+
+-- What a system account Account-Tree made had that its storage does not
+-- carry, kept while the storage is unplugged, so that plugging it in again
+-- makes the system account again as it was. A row is keyed on the storage
+-- account, its database uid in its database, because the system uid was
+-- freed at unplug. It is deleted when the system account is made again, or
+-- when the introduction is retired. A field empty in /etc/shadow is NULL.
+-- Added after the first system databases were made, like storage_device.
+CREATE TABLE IF NOT EXISTS system_account__saved (
+  database_uuid           TEXT NOT NULL,
+  database_uid            INTEGER NOT NULL,
+  comment                 TEXT NOT NULL,
+  shell                   TEXT NOT NULL,
+  password                TEXT NOT NULL,   -- the hash, as /etc/shadow holds it
+  password__last_change   INTEGER,         -- days since 1970-01-01
+  password__minimum_day   INTEGER,
+  password__maximum_day   INTEGER,
+  password__warning_day   INTEGER,
+  password__inactive_day  INTEGER,
+  account__expire         INTEGER,         -- days since 1970-01-01
+  PRIMARY KEY (database_uuid ,database_uid)
+);
+-- The supplementary groups of each saved system account, a row for each group.
+CREATE TABLE IF NOT EXISTS system_account__saved_group (
+  database_uuid  TEXT NOT NULL,
+  database_uid   INTEGER NOT NULL,
+  group_name     TEXT NOT NULL,
+  PRIMARY KEY (database_uuid ,database_uid ,group_name)
+);
 
 -- Every change. hash covers previous_hash, series, description, change and nonce.
 CREATE TABLE transaction_log (

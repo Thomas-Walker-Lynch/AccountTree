@@ -66,10 +66,11 @@ def system__show():
   print("standard  " + " ".join(s["version"] for s in db.rows("SELECT version FROM standard")))
   print(f"range     system uids {r['first']} to {r['last']}")
   print("system map")
-  for m in db.rows("SELECT * FROM system_map ORDER BY state ,system_uid"):
-    entry = system_account__by_system_uid(m["system_uid"])
+  for m in db.rows("SELECT * FROM system_map ORDER BY state ,system_account__name"):
+    entry = system_account__by_system_uid(m["system_uid"]) if m["system_uid"] is not None else None
     missing = m["state"] == "in use" and not (entry and entry.pw_name == m["system_account__name"])
-    print(f"  {m['system_account__name']:<26}system uid {m['system_uid']:<7}{m['origin']:<8}{m['state']:<8}"
+    uid = m["system_uid"] if m["system_uid"] is not None else "-"
+    print(f"  {m['system_account__name']:<26}system uid {uid:<7}{m['origin']:<8}{m['state']:<10}"
           f"database {m['database_uuid'][:8]} database uid {m['database_uid']}"
           + ("  (system account missing)" if missing else ""))
   print("storage heads last seen")
@@ -84,13 +85,11 @@ def system__show():
       plugged = Path(f"/run/Account-Tree/plugged/{r['storage_name']}.json").exists()
       print(f"  {r['storage_name']:<26}LUKS uuid {r['luks_uuid']}  database {r['database_uuid'][:8]}"
             f"  at {r['dirpa__mount']}" + ("  (plugged in)" if plugged else ""))
-  limit_row = db.rows("SELECT * FROM account_limit ORDER BY system_uid")
+  limit_row = db.rows("SELECT * FROM account_limit ORDER BY system_account__name")
   if limit_row:
     print("limits")
     for l in limit_row:
-      entry = system_account__by_system_uid(l["system_uid"])
-      who = entry.pw_name if entry else f"system uid {l['system_uid']}"
-      print(f"  {who:<26}{l['maximum']}")
+      print(f"  {l['system_account__name']:<26}{l['maximum']}")
   problem = db.verify()
   print("verify    " + ("ok" if not problem else "; ".join(problem)))
   return 1 if problem else 0
@@ -99,7 +98,8 @@ def system__delete(log ,preview):
   """
   Delete the system database. Refused while its system map has any row in
   use: those system accounts would be left with no record, and their system
-  uids could be given out again.
+  uids could be given out again. The introductions of storage that is
+  unplugged are forgotten with it.
   """
   fpa__database = Database.FPA__SYSTEM_DATABASE
   if not fpa__database.exists():
@@ -112,6 +112,11 @@ def system__delete(log ,preview):
                 f" of database {m['database_uuid'][:8]}; run is-not-same-account, or storage delete, first")
     log.line("kept" ,str(fpa__database) ,"nothing was changed")
     return
+  # an introduction whose storage is unplugged has no system account here, so
+  # nothing is left without a record; it is forgotten with the database
+  for m in db.rows("SELECT * FROM system_map WHERE state = 'unplugged' ORDER BY system_account__name"):
+    log.line("forgotten" ,m["system_account__name"],
+             f"introduced from database {m['database_uuid'][:8]}, whose storage is unplugged; it has no system account here")
   db.close()
   for entry in sorted(fpa__database.parent.iterdir()):
     if entry.name.startswith("system.sqlite3"):
@@ -134,11 +139,11 @@ def limit__set(system_account__name ,maximum ,log ,preview):
   entry = system_account(system_account__name)
   if entry is None:
     log.error(system_account__name ,"no such system account"); return
-  old = db.row("SELECT maximum FROM account_limit WHERE system_uid = ?" ,(entry.pw_uid,))
+  old = db.row("SELECT maximum FROM account_limit WHERE system_account__name = ?" ,(system_account__name,))
   if old and old["maximum"] == maximum:
     log.line("kept" ,f"{system_account__name} limit {maximum}" ,"already set"); return
   with db.transaction(f"set limit of {system_account__name} to {maximum}" ,preview) as t:
-    t.execute("INSERT INTO account_limit(system_uid ,maximum) VALUES (? ,?)"
-              " ON CONFLICT(system_uid) DO UPDATE SET maximum = excluded.maximum" ,(entry.pw_uid ,maximum))
+    t.execute("INSERT INTO account_limit(system_account__name ,maximum) VALUES (? ,?)"
+              " ON CONFLICT(system_account__name) DO UPDATE SET maximum = excluded.maximum" ,(system_account__name ,maximum))
   was = f"was {old['maximum']}" if old else "was unset, which counts as 0"
   log.line("set" ,f"{system_account__name} limit {maximum}" ,was)
